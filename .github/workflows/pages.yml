@@ -24,29 +24,37 @@ jobs:
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
-      - name: Assemble and validate static site
+      - name: Validate frontend source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s index.html
+          test -s css/app.css
+          test -s js/app.js
+          test -s assets/favicon.svg
+          test -s assets/parts-doodle-background.svg
+          node --check js/app.js
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path(".")
+          manifest = json.loads((root / "site.webmanifest").read_text())
+          assert manifest["name"] == "Parts Expedite Knowledge Base"
+          for icon in manifest["icons"]:
+              path = root / icon["src"].lstrip("./")
+              assert path.is_file(), f"Missing manifest icon: {path}"
+          for avatar in Path("avatars").glob("*.svg"):
+              assert avatar.stat().st_size > 100
+          print("Frontend files and browser icons validated.")
+          PY
+
+      - name: Assemble Pages site
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p dist
-          tar -tzf site-source.tar.gz > /tmp/site-files.txt
-          tar -xzf site-source.tar.gz -C dist
-          test -s dist/index.html
-          test -s dist/css/app.css
-          test -s dist/js/app.js
-          test -s dist/assets/favicon.svg
-          test -s dist/assets/parts-doodle-background.svg
-          node --check dist/js/app.js
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
-          root = Path("dist")
-          manifest = json.loads((root / "site.webmanifest").read_text())
-          assert manifest["name"] == "Parts Expedite Knowledge Base"
-          for icon in manifest.get("icons", []):
-              assert (root / icon["src"].lstrip("./")).is_file(), icon["src"]
-          print(f"Validated {len(list(root.rglob('*')))} deployed paths")
-          PY
+          cp index.html site.webmanifest dist/
+          cp -R css js assets avatars dist/
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
