@@ -1,20 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180">
   <defs>
     <linearGradient id="amber" x1="0" y1="0" x2="1" y2="1">
-      <stop stop-color="#ffe5a7"/><stop offset=".48" stop-color="#ffb52e"/><stop offset="1" stop-color="#e66a10"/>
+      <stop stop-color="#ffe5a7"/><stop offset=".58" stop-color="#ffb52e"/><stop offset="1" stop-color="#e66a10"/>
     </linearGradient>
-    <filter id="glow" x="-35%" y="-35%" width="170%" height="170%">
-      <feColorMatrix type="matrix" values="
-        0 0 0 0 1
-        0 0 0 0 .72
-        0 0 0 0 .20
-        0 0 0 1 0" result="amberLogo"/>
-      <feGaussianBlur in="amberLogo" stdDeviation="3" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="amberLogo"/></feMerge>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
+    <mask id="vw" maskUnits="userSpaceOnUse" mask-type="alpha" x="0" y="0" width="180" height="180">
+      <image href="vw-logo-source.png" x="34" y="34" width="112" height="112" preserveAspectRatio="xMidYMid meet"/>
+    </mask>
   </defs>
-  <rect width="180" height="180" rx="38" fill="#100b06"/>
-  <circle cx="90" cy="90" r="75" fill="none" stroke="url(#amber)" stroke-width="7"/>
-  <image href="vw-logo-source.png" x="39" y="39" width="102" height="102"
-         preserveAspectRatio="xMidYMid meet" filter="url(#glow)"/>
+  <rect x="3" y="3" width="174" height="174" rx="39" fill="#100b06" stroke="#ffb52e" stroke-opacity=".45" stroke-width="3"/>
+  <rect x="34" y="34" width="112" height="112" fill="url(#amber)" mask="url(#vw)" filter="url(#glow)"/>
+  <rect x="4.5" y="4.5" width="171" height="171" rx="37.5" fill="none" stroke="#ffe2a0" stroke-opacity=".3" stroke-width="1.5"/>
 </svg>

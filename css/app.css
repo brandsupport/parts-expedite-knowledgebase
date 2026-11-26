@@ -25,3 +25,49 @@
 @media(max-width:650px){.topbar{padding-inline:13px;gap:9px}.breadcrumbs{font-size:8px;gap:6px}.global-search{width:40px;min-width:40px;padding:0 10px;justify-content:center}.global-search input,.global-search kbd{display:none}.global-search:focus-within{position:absolute;left:52px;right:120px;width:auto;z-index:30}.global-search:focus-within input{display:block}.user-chip{padding:3px}.user-chip span,.user-chip>b{display:none}.icon-button{width:35px;height:35px}.view{padding:19px 13px 35px}.hero-panel{grid-template-columns:1fr;padding:25px 21px;min-height:0}.hero-title{font-size:36px}.hero-visual{height:120px;position:absolute;right:8px;bottom:6px;opacity:.24}.hero-wheel{width:140px;height:140px}.hero-wheel span{font-size:60px}.hero-copy{z-index:3}.stat-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.stat-card{padding:10px;gap:8px}.stat-icon{width:30px;height:30px}.stat-card strong{font-size:17px}.quick-grid{grid-template-columns:1fr}.quick-card{min-height:125px}.side-stack{grid-template-columns:1fr}.article-grid{grid-template-columns:1fr}.library-layout{grid-template-columns:1fr}.filter-panel{order:0}.filter-list{display:flex;overflow:auto;padding-bottom:4px}.filter-button{white-space:nowrap}.form-layout{grid-template-columns:1fr}.form-grid{grid-template-columns:1fr}.field.full{grid-column:auto}.games-grid{grid-template-columns:1fr}.game-card{grid-template-columns:70px 1fr;min-height:120px}.game-art{width:68px;height:68px;font-size:29px}.profile-layout{grid-template-columns:1fr}.avatar-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.admin-metrics{grid-template-columns:repeat(2,1fr)}.admin-item{align-items:flex-start;flex-direction:column}.footer{flex-wrap:wrap;padding:14px}.footer-centre{display:none}.detail-actions{align-items:flex-start}.article-detail{padding:16px}.revision-box{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
 .nav-item[hidden]{display:none!important}
+
+
+/* Brand Support-compatible VWG logo treatment, translated to the Parts Expedite amber palette */
+:root{--pe-vw-logo:url('../assets/vw-logo-source.png')}
+.brand-emblem{
+  position:relative;width:48px;height:48px;flex:0 0 48px;border-radius:14px;
+  background:linear-gradient(145deg,rgba(255,255,255,.10),rgba(255,255,255,.02));
+  border:1px solid rgba(255,181,46,.38);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 0 22px -6px rgba(255,181,46,.65);
+  display:flex;align-items:center;justify-content:center;overflow:hidden;
+  transition:box-shadow .25s ease,transform .25s ease,border-color .25s ease;
+}
+.brand-lockup:hover .brand-emblem{
+  transform:translateY(-1px) scale(1.04);border-color:#ffb52e;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 0 26px -2px rgba(255,181,46,.8),0 0 40px -10px rgba(255,123,22,.75);
+}
+.brand-emblem::after{
+  content:"";position:absolute;inset:-1px;border-radius:inherit;pointer-events:none;
+  background:conic-gradient(from var(--pe-spin,0deg),transparent 0 72%,#ffe2a0 88%,#ff7b16 96%,transparent 100%);
+  -webkit-mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0);
+  mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0);
+  padding:1.5px;opacity:.9;animation:peMarkSpin 5s linear infinite;
+}
+@keyframes peMarkSpin{to{--pe-spin:360deg}}
+.pe-logo-glow{display:block;width:30px;height:30px;filter:drop-shadow(0 0 5px rgba(255,181,46,.9)) drop-shadow(0 0 12px rgba(255,123,22,.42))}
+.pe-logo-glyph{
+  display:block;width:100%;height:100%;
+  background:linear-gradient(135deg,#ffe5a7 10%,#ffb52e 58%,#e66a10 95%);
+  -webkit-mask:var(--pe-vw-logo) center/contain no-repeat;
+  mask:var(--pe-vw-logo) center/contain no-repeat;
+}
+.footer-mark{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;flex:0 0 22px}
+.footer-mark .pe-logo-glow{width:22px;height:22px;filter:drop-shadow(0 0 4px rgba(255,181,46,.85))}
+.footer-signature{font:600 13px/1.3 var(--font);letter-spacing:.025em;color:#d8c4a3;text-transform:none}
+.footer-signature strong{
+  display:inline-block;margin-left:3px;font:800 16px/1 var(--display);letter-spacing:.015em;
+  background:linear-gradient(105deg,#fff0c8 0%,#ffbf45 45%,#ff861d 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  text-shadow:0 0 16px rgba(255,173,43,.28);
+}
+.footer-signature i{display:inline-block;margin-left:5px;color:#ffb52e;font-size:15px;font-style:normal;text-shadow:0 0 10px rgba(255,181,46,.65)}
+.footer-credits{gap:6px!important}
+@media(max-width:720px){
+  .footer-signature{font-size:12px}
+  .footer-signature strong{font-size:15px}
+}

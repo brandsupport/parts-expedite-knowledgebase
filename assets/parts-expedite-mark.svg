@@ -1,15 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Volkswagen emblem">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Volkswagen emblem in the Parts Expedite amber neon style">
   <defs>
-    <filter id="amberGlow" x="-50%" y="-50%" width="200%" height="200%">
-      <feColorMatrix type="matrix" values="
-        0 0 0 0 1
-        0 0 0 0 .72
-        0 0 0 0 .20
-        0 0 0 1 0" result="amber"/>
-      <feGaussianBlur in="amber" stdDeviation="2.4" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="amber"/></feMerge>
+    <linearGradient id="amber" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#ffe5a7"/><stop offset=".58" stop-color="#ffb52e"/><stop offset="1" stop-color="#e66a10"/>
+    </linearGradient>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="3.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
+    <mask id="vw" maskUnits="userSpaceOnUse" mask-type="alpha" x="0" y="0" width="120" height="120">
+      <image href="vw-logo-source.png" x="21" y="21" width="78" height="78" preserveAspectRatio="xMidYMid meet"/>
+    </mask>
   </defs>
-  <image href="vw-logo-source.png" x="4" y="4" width="112" height="112"
-         preserveAspectRatio="xMidYMid meet" filter="url(#amberGlow)"/>
+  <rect x="2" y="2" width="116" height="116" rx="25" fill="#100b06" stroke="#ffb52e" stroke-opacity=".4" stroke-width="1.5"/>
+  <rect x="21" y="21" width="78" height="78" fill="url(#amber)" mask="url(#vw)" filter="url(#glow)"/>
+  <rect x="2.75" y="2.75" width="114.5" height="114.5" rx="24" fill="none" stroke="#ffe2a0" stroke-opacity=".35"/>
 </svg>
