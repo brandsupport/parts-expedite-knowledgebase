@@ -28,6 +28,7 @@
 
 
 /* Brand Support-compatible VWG logo treatment, translated to the Parts Expedite amber palette */
+@property --pe-spin{syntax:"<angle>";initial-value:0deg;inherits:false;}
 :root{--pe-vw-logo:url('../assets/vw-logo-source.png')}
 .brand-emblem{
   position:relative;width:48px;height:48px;flex:0 0 48px;border-radius:14px;
