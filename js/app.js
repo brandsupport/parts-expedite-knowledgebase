@@ -3,13 +3,14 @@
    shared storage, secure permissions, or the final content database. */
 const CATEGORIES = [
   {id:'all',name:'All knowledge',icon:'▦'},
-  {id:'identification',name:'Parts identification',icon:'⌕'},
-  {id:'ordering',name:'Ordering & sourcing',icon:'⇄'},
-  {id:'backorders',name:'Backorders & delays',icon:'◷'},
-  {id:'returns',name:'Returns & warranty',icon:'↩'},
-  {id:'systems',name:'Systems & tools',icon:'⌘'},
-  {id:'processes',name:'Processes & procedures',icon:'☷'},
-  {id:'contacts',name:'Supplier contacts',icon:'◎'}
+  {id:'backorders',name:'Backorders & ETA',icon:'◷'},
+  {id:'delivery',name:'Order status & delivery',icon:'⇢'},
+  {id:'parts',name:'Parts & supersessions',icon:'⚙'},
+  {id:'mobility',name:'Mobility & special vehicles',icon:'🚗'},
+  {id:'calls',name:'Calls & case logging',icon:'☎'},
+  {id:'systems',name:'Systems & portals',icon:'⌘'},
+  {id:'stock',name:'Stock & availability',icon:'▣'},
+  {id:'exceptions',name:'Exceptions & escalations',icon:'⚠'}
 ];
 const AVATARS = [
   ['Amber Sentinel','avatars/amber-sentinel.svg'],['Turbo Fox','avatars/turbo-fox.svg'],
@@ -17,20 +18,13 @@ const AVATARS = [
   ['Spark Scout','avatars/spark-scout.svg'],['Piston Knight','avatars/piston-knight.svg'],
   ['Rally Rogue','avatars/rally-rogue.svg'],['Night Shift','avatars/night-shift.svg']
 ];
-const SEED_ARTICLES = [
-  {id:'PE-001',title:'Parts identification: start with the full part number',category:'identification',tags:['Part number','Identification','Reference'],summary:'A starter reference for capturing and checking the identifiers needed before researching a part.',body:'This is a front-end sample article only. Replace it with the Parts Expedite team’s approved identification guidance before launch.\n\n## Information to capture\n- Full part number exactly as supplied\n- Vehicle details required by the team’s approved process\n- Any suffix, revision or supersession information\n\n## Before progressing\nCheck the approved internal source and record the reference used. Do not rely on this example as an operational instruction.',updated:'Preview content',status:'published',author:'Parts Expedite Team',sample:true},
-  {id:'PE-002',title:'Order enquiry: information checklist',category:'ordering',tags:['Orders','Enquiries','Checklist'],summary:'A placeholder checklist showing how the team can structure a complete parts order enquiry.',body:'This is sample placeholder content. Add the actual Parts Expedite order-enquiry process here before the site is used operationally.\n\n## Suggested enquiry fields\n- Customer or retailer reference\n- Part number and requested quantity\n- Vehicle or application details, where relevant\n- Required date and delivery destination\n- Supporting correspondence or screenshots\n\n## Team guidance\nReplace this section with approved checks, system steps and escalation routes.',updated:'Preview content',status:'published',author:'Parts Expedite Team',sample:true},
-  {id:'PE-003',title:'Backorder update: recording the next action',category:'backorders',tags:['Backorder','Updates','Follow-up'],summary:'A draft example for capturing the current position, last update and next follow-up action.',body:'This is a front-end sample article. Insert the team-approved backorder workflow before launch.\n\n## Suggested record structure\n- Current status and source of the status\n- Date of the latest supplier or system update\n- Next action and responsible person\n- Expected follow-up date\n\n## Important\nDo not enter estimated dates as confirmed commitments. Use the approved source and wording used by the team.',updated:'Preview content',status:'published',author:'Parts Expedite Team',sample:true},
-  {id:'PE-004',title:'Returns and warranty: routing an enquiry',category:'returns',tags:['Returns','Warranty','Routing'],summary:'A layout example for a returns and warranty guide with decision points and supporting evidence.',body:'This is a sample placeholder. Replace it with the approved Parts Expedite returns and warranty process.\n\n## Example information to collect\n- Original order or invoice reference\n- Part number and quantity\n- Date supplied or fitted, if relevant to the process\n- Description of the issue and supporting evidence\n\n## Routing\nAdd the correct team ownership, supplier rules, eligibility checks and escalation contacts here.',updated:'Preview content',status:'published',author:'Parts Expedite Team',sample:true},
-  {id:'PE-005',title:'Systems and tools: quick reference index',category:'systems',tags:['Systems','Quick links','Reference'],summary:'A central place to collect the systems, portals and reference tools used by the team.',body:'This is sample placeholder content. Add only approved internal links and access instructions.\n\n## Reference directory\n- System or portal name\n- Approved access URL\n- What the tool is used for\n- Required role or access route\n- Support contact if access fails\n\n## Link ownership\nAssign an owner to review links periodically so the library remains accurate.',updated:'Preview content',status:'published',author:'Parts Expedite Team',sample:true},
-  {id:'PE-006',title:'Escalation notes: handover with context',category:'processes',tags:['Escalation','Handover','Process'],summary:'A sample handover structure to make escalations easier to understand and action.',body:'This is sample placeholder content. Replace it with the team’s escalation criteria and approved contacts.\n\n## Handover essentials\n- What has happened so far\n- What has already been checked\n- Current impact or urgency, using team definitions\n- Evidence and source references\n- The specific decision or action required\n\n## Close the loop\nRecord the outcome and update the original enquiry so the next colleague can follow the full history.',updated:'Preview content',status:'published',author:'Parts Expedite Team',sample:true}
-];
+const SEED_ARTICLES = window.PE_IMPORTED_ARTICLES || [];
 const state = {
   role: localStorage.getItem('pe-preview-role') || 'member',
   name: localStorage.getItem('pe-preview-name') || 'Momo',
   avatar: localStorage.getItem('pe-preview-avatar') || AVATARS[0][1],
   favorites: loadJSON('pe-favorites',[]),
-  articles: loadJSON('pe-articles',SEED_ARTICLES),
+  articles: loadArticleLibrary(),
   submissions: loadJSON('pe-submissions',[]),
   revisions: loadJSON('pe-revisions',[]),
   recycle: loadJSON('pe-recycle',[]),
@@ -41,6 +35,16 @@ const view = document.getElementById('view');
 const toastEl = document.getElementById('toast');
 let toastTimer;
 function loadJSON(key,fallback){try{const value=JSON.parse(localStorage.getItem(key));return value===null?structuredClone(fallback):value;}catch{return structuredClone(fallback);}}
+function loadArticleLibrary(){
+  const stored=loadJSON('pe-articles',null);
+  if(!Array.isArray(stored))return structuredClone(SEED_ARTICLES);
+  const merged=new Map(SEED_ARTICLES.map(article=>[String(article.id),structuredClone(article)]));
+  stored.filter(article=>!article.sample).forEach(article=>{
+    const id=String(article.id);
+    merged.set(id,{...(merged.get(id)||{}),...article});
+  });
+  return [...merged.values()];
+}
 function saveState(){localStorage.setItem('pe-preview-role',state.role);localStorage.setItem('pe-preview-name',state.name);localStorage.setItem('pe-preview-avatar',state.avatar);localStorage.setItem('pe-favorites',JSON.stringify(state.favorites));localStorage.setItem('pe-articles',JSON.stringify(state.articles));localStorage.setItem('pe-submissions',JSON.stringify(state.submissions));localStorage.setItem('pe-revisions',JSON.stringify(state.revisions));localStorage.setItem('pe-recycle',JSON.stringify(state.recycle));localStorage.setItem('pe-revision-history',JSON.stringify(state.revisionHistory));}
 function escapeHTML(value=''){return String(value).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
 function toast(message){toastEl.textContent=message;toastEl.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toastEl.classList.remove('show'),3200);}
