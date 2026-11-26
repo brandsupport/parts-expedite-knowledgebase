@@ -72,3 +72,17 @@
   .footer-signature{font-size:12px}
   .footer-signature strong{font-size:15px}
 }
+
+/* Imported source library: readable topic tags, provenance and nested list formatting */
+.article-card-tags{display:flex;flex-wrap:wrap;gap:5px;margin:11px 0 2px;min-height:22px}
+.article-card-tag{padding:3px 7px;border:1px solid rgba(255,181,46,.2);border-radius:20px;background:rgba(255,181,46,.055);color:#cfb58e;font:9px var(--mono);line-height:1.3;cursor:pointer;transition:.18s ease}
+.article-card-tag:hover{border-color:#ffb52e80;background:#ffb52e18;color:#ffe0a0}
+.article-detail .detail-foot .pill{cursor:pointer}
+.article-detail .detail-foot .pill:hover{border-color:#ffb52e90;color:#ffe0a0;background:#ffb52e12}
+.source-note{margin-top:22px;padding:13px 15px;border:1px solid var(--line);border-radius:11px;background:linear-gradient(100deg,#ffb52e0b,#100b06a8);color:var(--muted);font-size:10px}
+.source-note strong{display:block;color:#f1c77c;font:700 10px var(--mono);letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px}
+.source-note span{color:#dfc8a2}
+.source-note p{margin:6px 0 0}
+.detail-body ol{padding-left:23px;margin:8px 0 17px}
+.detail-body ol li{margin:6px 0;padding-left:3px}
+.detail-body h4{font:700 14px var(--display);color:#f1c77c;margin:20px 0 8px}

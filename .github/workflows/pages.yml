@@ -25,9 +25,28 @@ jobs:
           test -s index.html
           test -s css/app.css
           test -s js/app.js
+          test -s data/articles-01.js
+          test -s data/articles-02.js
+          test -s data/articles-03.js
           test -s assets/favicon.svg
           test -s assets/parts-doodle-background.svg
           node --check js/app.js
+          node --check data/articles-01.js
+          node --check data/articles-02.js
+          node --check data/articles-03.js
+          node - <<'JS'
+          global.window = {};
+          require('./data/articles-01.js');
+          require('./data/articles-02.js');
+          require('./data/articles-03.js');
+          const articles = window.PE_IMPORTED_ARTICLES || [];
+          if (articles.length !== 30) throw new Error('Expected 30 imported articles, found ' + articles.length);
+          if (new Set(articles.map(a => a.id)).size !== 30) throw new Error('Imported article IDs are not unique');
+          for (const article of articles) {
+            if (!article.title || !article.category || !article.tags?.length || !article.body) throw new Error('Incomplete article: ' + article.id);
+          }
+          console.log('Validated 30 unique imported articles, categories, tags and content.');
+          JS
           python3 - <<'PY'
           import json
           from pathlib import Path
@@ -47,7 +66,7 @@ jobs:
           set -euo pipefail
           mkdir -p dist
           cp index.html site.webmanifest dist/
-          cp -R css js assets avatars dist/
+          cp -R css js assets avatars data dist/
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
