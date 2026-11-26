@@ -1,36 +1,37 @@
 # Parts Expedite Knowledge Base
 
-Standalone amber-themed front-end preview for the Parts Expedite team.
+A standalone amber-themed front-end preview for the Parts Expedite team.
 
-## GitHub Pages preview
+## Source files
 
-The site is deployed from the `main` branch using `.github/workflows/pages.yml`. The workflow extracts the static source archive, validates its core assets, JavaScript syntax and web-app manifest, then deploys the result to GitHub Pages.
+The frontend is committed as normal, browsable project files:
 
-## Source layout
+- `index.html` — application shell and page metadata.
+- `css/app.css` — complete responsive amber / graphite design system.
+- `js/app.js` — frontend navigation, article catalogue, forms, profile and browser-local preview interactions.
+- `assets/parts-expedite-mark.svg` — team identity mark.
+- `assets/parts-doodle-background.svg` — automotive-parts doodle wallpaper.
+- `assets/favicon.svg`, `assets/apple-touch-icon.svg` and `site.webmanifest` — browser and installed-app icons.
+- `avatars/*.svg` — original superhero profile portraits.
+- `.github/workflows/pages.yml` — source validation and GitHub Pages deployment.
 
-- `site-source.tar.gz` — source archive unpacked by the Pages workflow.
-- `.github/workflows/pages.yml` — static-site validation and GitHub Pages deployment.
+## Front-end preview scope
 
-The archive contains:
-
-- `index.html`
-- `css/app.css`
-- `js/app.js`
-- `site.webmanifest`
-- `assets/*.svg` — Parts Expedite brand mark, automotive doodle wallpaper and shared browser/touch icons
-- `avatars/*.svg` — original superhero profile portraits
-
-## Front-end scope
-
-- Amber / graphite automotive identity, neon styling and hand-drawn parts pattern.
-- Responsive knowledge library, categories, article reader and search.
-- Built-in article submission and edit flows with member / Authorized Editor / Administrator preview modes.
-- Front-end admin queue, review cards, revisions, recycle bin, user and notification screens.
+- Responsive Parts Expedite knowledge library, categories, article reader and search.
+- Built-in article submission and edit layouts.
+- Member, Authorized Editor and Administrator preview modes.
+- Admin review panels, revision history, recycle-bin, notifications and user-management layouts.
 - Profile, superhero avatar selection and favorites.
 - Four reserved game cards; game design is intentionally deferred.
 
-## Backend phase
+## GitHub Pages
 
-This first deployment is a static front-end prototype and uses browser-local demonstration state only. Authentication, role enforcement, article submissions, approval workflows, revisions, favorites and persistent user data will be implemented in a separate Cloudflare Workers + D1 backend. The preview role switcher is for design review only and provides no security.
+The Pages workflow validates the individual HTML, CSS, JavaScript and asset files, creates a static deployment artifact, then deploys it to GitHub Pages.
 
-**Do not enter real passwords, personal data or confidential operational information into this prototype.** No real user accounts, shared D1 data or cross-user submissions exist yet.
+To enable deployment for this repository, open **Settings → Pages** and set **Build and deployment → Source** to **GitHub Actions**.
+
+## Backend phase and preview limitations
+
+This is a static frontend prototype. Its accounts, role switcher, submissions, approvals, revisions, favorites and admin controls are browser-local demonstrations only. They do not provide authentication, permissions, durable storage or cross-user data. The separate Cloudflare Workers + D1 backend will provide those capabilities in the backend phase.
+
+**Do not enter real passwords, personal data or confidential operational information into this prototype.**
