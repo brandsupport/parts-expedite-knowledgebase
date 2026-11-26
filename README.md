@@ -4,11 +4,14 @@ Standalone amber-themed front-end preview for the Parts Expedite team.
 
 ## GitHub Pages preview
 
-The site is deployed from the `main` branch using `.github/workflows/pages.yml`. The workflow assembles the compressed static source bundle, validates its HTML assets, JavaScript syntax and web-app manifest, then deploys the result to GitHub Pages.
+The site is deployed from the `main` branch using `.github/workflows/pages.yml`. The workflow extracts the static source archive, validates its core assets, JavaScript syntax and web-app manifest, then deploys the result to GitHub Pages.
 
-## Local source bundle
+## Source layout
 
-The deployable source is stored as ordered Base64 segments named `site-source.tar.gz.b64.part-*`. The workflow concatenates the explicitly listed segments, decodes the archive and extracts it into the Pages artifact. This keeps the initial static-site upload reliable through the repository integration. The extracted app consists of:
+- `site-source.tar.gz` — source archive unpacked by the Pages workflow.
+- `.github/workflows/pages.yml` — static-site validation and GitHub Pages deployment.
+
+The archive contains:
 
 - `index.html`
 - `css/app.css`
@@ -22,7 +25,7 @@ The deployable source is stored as ordered Base64 segments named `site-source.ta
 - Amber / graphite automotive identity, neon styling and hand-drawn parts pattern.
 - Responsive knowledge library, categories, article reader and search.
 - Built-in article submission and edit flows with member / Authorized Editor / Administrator preview modes.
-- Front-end admin queue, review cards, revisions, recycle-bin, user and notification screens.
+- Front-end admin queue, review cards, revisions, recycle bin, user and notification screens.
 - Profile, superhero avatar selection and favorites.
 - Four reserved game cards; game design is intentionally deferred.
 
