@@ -18,33 +18,19 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out source bundle
+      - name: Check out source
         uses: actions/checkout@v4
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
-        with:
-          enablement: true
 
       - name: Assemble and validate static site
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p dist
-          cat \
-            site-source.tar.gz.b64.part-01 \
-            site-source.tar.gz.b64.part-02 \
-            site-source.tar.gz.b64.part-03 \
-            site-source.tar.gz.b64.part-03b \
-            site-source.tar.gz.b64.part-04a \
-            site-source.tar.gz.b64.part-04b \
-            site-source.tar.gz.b64.part-04c1 \
-            site-source.tar.gz.b64.part-04c2 \
-            site-source.tar.gz.b64.part-04c3 \
-            > /tmp/site-source.tar.gz.b64
-          base64 --decode /tmp/site-source.tar.gz.b64 > /tmp/site-source.tar.gz
-          tar -tzf /tmp/site-source.tar.gz > /tmp/site-files.txt
-          tar -xzf /tmp/site-source.tar.gz -C dist
+          tar -tzf site-source.tar.gz > /tmp/site-files.txt
+          tar -xzf site-source.tar.gz -C dist
           test -s dist/index.html
           test -s dist/css/app.css
           test -s dist/js/app.js
