@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#100b06">
+  <meta name="description" content="Parts Expedite — the team's knowledge, process and learning hub.">
+  <title>Parts Expedite · Knowledge Base</title>
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg?v=pe-02">
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.svg?v=pe-02">
+  <link rel="mask-icon" href="assets/favicon.svg?v=pe-02" color="#ffb52e">
+  <link rel="manifest" href="site.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <button class="brand-lockup" data-route="home" aria-label="Parts Expedite home">
+        <span class="brand-emblem"><img src="assets/parts-expedite-mark.svg" alt=""></span>
+        <span class="brand-copy"><strong>PARTS <b>EXPEDITE</b></strong><small>KNOWLEDGE BASE</small></span>
+      </button>
+      <div class="sidebar-label">WORKSPACE</div>
+      <nav class="side-nav" aria-label="Main navigation">
+        <button class="nav-item active" data-route="home"><span class="nav-icon">⌂</span><span>Overview</span></button>
+        <button class="nav-item" data-route="articles"><span class="nav-icon">▤</span><span>Knowledge library</span><span class="nav-count" id="articleCount">06</span></button>
+        <button class="nav-item" data-route="submit"><span class="nav-icon">＋</span><span>Submit an article</span></button>
+        <button class="nav-item" data-route="games"><span class="nav-icon">⚡</span><span>Knowledge games</span><span class="soon-dot">4</span></button>
+      </nav>
+      <div class="sidebar-label sidebar-label-spaced">YOUR SPACE</div>
+      <nav class="side-nav">
+        <button class="nav-item" data-route="favorites"><span class="nav-icon">☆</span><span>Saved articles</span></button>
+        <button class="nav-item" data-route="profile"><span class="nav-icon">◉</span><span>My profile</span></button>
+        <button class="nav-item" data-route="leaderboard"><span class="nav-icon">♜</span><span>Leaderboard</span></button>
+      </nav>
+      <div class="sidebar-label sidebar-label-spaced">MANAGEMENT</div>
+      <nav class="side-nav">
+        <button class="nav-item" data-route="admin"><span class="nav-icon">▦</span><span>Admin workspace</span><span class="admin-indicator"></span></button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="sidebar-spark">✦</div>
+        <strong>Built for the<br><em>parts people.</em></strong>
+        <span>KNOWLEDGE · SPEED · ACCURACY</span>
+        <div class="sidebar-rule"></div>
+        <div class="demo-state"><span class="pulse"></span><span>FRONT-END PREVIEW</span></div>
+      </div>
+    </aside>
+
+    <main class="main-area">
+      <header class="topbar">
+        <button class="mobile-menu" id="mobileMenu" aria-label="Open menu">☰</button>
+        <div class="breadcrumbs"><span>PARTS EXPEDITE</span><i>/</i><strong id="crumbCurrent">Overview</strong></div>
+        <div class="topbar-actions">
+          <label class="global-search"><span>⌕</span><input id="globalSearch" type="search" placeholder="Search parts knowledge…" autocomplete="off"><kbd>⌘ K</kbd></label>
+          <button class="icon-button notification-button" id="notificationButton" title="Notifications">♧<i></i></button>
+          <button class="user-chip" id="userChip" data-route="profile">
+            <img id="topAvatar" src="avatars/amber-sentinel.svg" alt="">
+            <span><strong id="topName">Momo</strong><small id="topRole">Member preview</small></span>
+            <b>⌄</b>
+          </button>
+        </div>
+      </header>
+
+      <section id="view" class="view" aria-live="polite"></section>
+      <footer class="footer">
+        <span><img src="assets/parts-expedite-mark.svg" alt="" class="footer-mark"> <b>PARTS EXPEDITE</b> KNOWLEDGE BASE</span>
+        <span class="footer-centre">BUILT FOR THE PEOPLE WHO KEEP PARTS MOVING <i>✦</i></span>
+        <span>© 2026 · PREVIEW BUILD 0.1</span>
+      </footer>
+    </main>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <div class="modal-backdrop" id="modalBackdrop" hidden>
+    <section class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <button class="modal-close" id="modalClose" aria-label="Close">×</button>
+      <div id="modalContent"></div>
+    </section>
+  </div>
+  <script src="js/app.js" defer></script>
+</body>
+</html>
