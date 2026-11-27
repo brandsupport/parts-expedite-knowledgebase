@@ -135,6 +135,7 @@ async function refreshBackendData(){
   const results=await Promise.all(requests);
   state.favorites=(results[0].favorites||[]).map(String);
   state.mySubmissions=results[1].submissions||[];
+  state.submissions=state.mySubmissions;
   state.notifications=results[2].notifications||[];
   if(admin){
     state.adminUsers=results[3].users||[];
@@ -366,7 +367,7 @@ function renderAdmin(){
   }else if(state.adminTab==='notifications'){
     panel=renderAdminNotifications();
   }else if(state.adminTab==='published'){
-    panel=renderAdminList(state.articles,'published');
+    panel=renderLivePublishedArticles();
   }else if(state.adminTab==='revisions'){
     panel=renderLiveRevisions();
   }else if(state.adminTab==='recycle'){
@@ -400,6 +401,16 @@ function renderLiveUsers(){
     return '<article class="admin-item surface"><div><span class="pill '+(status==='pending'?'amber':status==='suspended'?'red':'green')+'">'+escapeHTML(status.toUpperCase())+'</span><h3>'+escapeHTML(user.displayName||'Colleague')+'</h3><p>'+escapeHTML(user.email||'')+' · '+escapeHTML(role)+'</p><p class="muted">Joined '+escapeHTML(shortDate(user.createdAt))+(user.mustChangePassword?' · Password change required':'')+'</p></div><div class="admin-actions">'+actions+'</div></article>';
   }).join('')+'</div>';
 }
+function renderLivePublishedArticles(){
+  return '<div class="admin-list">'+(state.articles||[]).map(article=>'<article class="admin-item surface"><div><span class="pill green">PUBLISHED</span><h3>'+escapeHTML(article.title||'Untitled guide')+'</h3><p>'+escapeHTML(getCategory(article.category))+' · '+escapeHTML(article.id)+' · '+escapeHTML(shortDate(article.updated))+'</p></div><div class="admin-actions"><button class="btn secondary small" data-edit-article="'+escapeHTML(article.id)+'">Edit / suggest</button><button class="btn danger small" data-archive-article="'+escapeHTML(article.id)+'">Archive</button></div></article>').join('')+'</div>';
+}
+async function archiveBackendArticle(id){
+  if(!confirm('Archive this article? It will be removed from the public library but can be restored later.'))return;
+  try{
+    await backendRequest('/api/articles/'+encodeURIComponent(id),{method:'DELETE'});
+    await refreshBackendData();renderRoute();toast('Article archived.');
+  }catch(error){toast(error.message);}
+}
 function renderPasswordRequests(){
   const requests=state.passwordRequests||[];
   if(!requests.length)return '<div class="empty-state"><h3>No password recovery requests</h3><p>Requests from active colleagues will appear here.</p></div>';
@@ -421,7 +432,55 @@ function renderArchivedArticles(){
   return '<div class="admin-list">'+items.map(item=>'<article class="admin-item surface"><div><span class="pill red">ARCHIVED</span><h3>'+escapeHTML(item.title||'Article')+'</h3><p>'+escapeHTML(item.id)+' · '+escapeHTML(getCategory(item.category))+'</p></div><button class="btn secondary small" data-restore-article="'+escapeHTML(item.id)+'">Restore article</button></article>').join('')+'</div>';
 }
 function renderAdminList(items,type){if(!items.length)return `<div class="empty-state"><div class="empty-icon">✓</div><h3>Nothing to review here</h3><p>This section is empty in the current preview workspace.</p></div>`;return `<div class="admin-list">${items.map((item,index)=>{const article=item.article||item;const id=item.id||article.id;const isRequest=['submissions','revisions'].includes(type);const status=item.status||(type==='recycle'?'recycled':'published');return `<article class="admin-item surface"><div><span class="pill ${status==='pending'?'amber':status==='rejected'?'red':'green'}">${escapeHTML(status.toUpperCase())}</span><h3>${escapeHTML(article.title||'Untitled content')}</h3><p>${escapeHTML(getCategory(article.category))} · ${escapeHTML(item.author||item.submitter||'Preview user')} · ${escapeHTML(id||'Draft')}</p>${item.note?`<p style="margin-top:5px">${escapeHTML(item.note)}</p>`:''}${item.original?`<div class="revision-box"><div><strong>BEFORE</strong>${escapeHTML(item.original.title)}</div><div><strong>PROPOSED UPDATE</strong>${escapeHTML(article.title)}</div></div>`:''}</div><div class="admin-actions">${isRequest&&status==='pending'?`<button class="btn secondary small" data-review="reject" data-index="${index}" data-type="${type}">Reject</button><button class="btn small" data-review="approve" data-index="${index}" data-type="${type}">Approve</button>`:type==='published'?`<button class="btn secondary small" data-edit-article="${escapeHTML(id)}">Edit</button><button class="btn danger small" data-recycle="${escapeHTML(id)}">Recycle</button>`:type==='recycle'?`<button class="btn secondary small" data-restore="${escapeHTML(id)}">Restore</button>`:''}</div></article>`;}).join('')}</div>`;}
-function renderRoute(){if(state.backendActive&&!state.currentUser&&['submit','profile','favorites','admin'].includes((location.hash.replace(/^#\/?/,'').split('/')[0]||'home'))){view.innerHTML='<div class="empty-state" style="margin-top:45px"><div class="empty-icon">⌑</div><h3>Sign in required</h3><p>Sign in to submit, save or manage Parts Expedite knowledge.</p><button class="btn" data-route="login">Sign in →</button></div>';document.getElementById('topName').textContent='Guest';document.getElementById('topRole').textContent='Not signed in';return;}const [page,arg]=location.hash.replace(/^#\/?/,'').split('/');const route=page||'home';document.querySelectorAll('[data-route]').forEach(el=>el.classList.toggle('active',el.dataset.route===route));const labels={home:'Overview',articles:'Knowledge library',article:'Article guide',submit:'Submit an article',games:'Knowledge games',favorites:'Saved articles',profile:'My profile',leaderboard:'Leaderboard',admin:'Admin workspace',login:'Sign in',signup:'Request access','forgot-password':'Password recovery','change-password':'Change password'};document.getElementById('crumbCurrent').textContent=labels[route]||'Overview';document.getElementById('articleCount').textContent=String(state.articles.length).padStart(2,'0');if(route==='home')view.innerHTML=renderHome();else if(route==='articles'){view.innerHTML=renderArticles();}else if(route==='article')view.innerHTML=renderArticle(arg);else if(route==='submit')view.innerHTML=renderSubmit(arg||null);else if(route==='games')view.innerHTML=renderGames();else if(route==='favorites')view.innerHTML=renderFavorites();else if(route==='profile')view.innerHTML=renderProfile();else if(route==='leaderboard')view.innerHTML=renderLeaderboard();else if(route==='admin'&&state.role==='admin')view.innerHTML=renderAdmin();else if(route==='admin')view.innerHTML=`<div class="empty-state" style="margin-top:50px"><div class="empty-icon">⌑</div><h3>Administrator access only</h3><p>Switch to the Administrator preview role to inspect the admin workspace. In production, this area will be protected by server-side permissions.</p><button class="btn secondary" data-action="choose-role">Change preview role</button></div>`;else if(['login','signup','forgot-password','change-password'].includes(route))view.innerHTML=renderAuth(route);else{location.hash='#/home';return;}const adminNav=document.querySelector('[data-route="admin"]');if(adminNav)adminNav.hidden=state.role!=='admin';const bodyField=document.getElementById('articleBody'),bodyCounter=document.getElementById('bodyCount');if(bodyField&&bodyCounter)bodyCounter.textContent=bodyField.value.length.toLocaleString()+' / 30,000';document.getElementById('topName').textContent=state.name;document.getElementById('topRole').textContent=roleLabel();document.getElementById('topAvatar').src=state.avatar;document.querySelectorAll('.nav-item').forEach(el=>el.classList.toggle('active',el.dataset.route===route));document.getElementById('sidebar').classList.remove('open');}
+function renderRoute(){
+  const [page,arg]=location.hash.replace(/^#\\/?/,'').split('/');
+  let route=page||'home';
+  const protectedRoutes=['submit','profile','favorites','admin','change-password'];
+  if(state.backendActive&&!state.currentUser&&protectedRoutes.includes(route)){
+    if(route==='change-password')go('login');
+    else view.innerHTML='<div class="empty-state" style="margin-top:45px"><div class="empty-icon">⌑</div><h3>Sign in required</h3><p>Sign in to submit, save or manage Parts Expedite knowledge.</p><button class="btn" data-route="login">Sign in →</button></div>';
+    document.getElementById('topName').textContent='Guest';
+    document.getElementById('topRole').textContent='Not signed in';
+    return;
+  }
+  if(state.backendActive&&state.currentUser?.mustChangePassword&&route!=='change-password'){
+    go('change-password');return;
+  }
+  if(state.backendActive&&state.currentUser&&['login','signup'].includes(route)){go('home');return;}
+  document.querySelectorAll('[data-route]').forEach(el=>el.classList.toggle('active',el.dataset.route===route));
+  const labels={home:'Overview',articles:'Knowledge library',article:'Article guide',submit:'Submit an article',games:'Knowledge games',favorites:'Saved articles',profile:'My profile',leaderboard:'Leaderboard',admin:'Admin workspace',login:'Sign in',signup:'Request access','forgot-password':'Password recovery','change-password':'Change password'};
+  document.getElementById('crumbCurrent').textContent=labels[route]||'Overview';
+  document.getElementById('articleCount').textContent=String(state.articles.length).padStart(2,'0');
+  if(route==='home')view.innerHTML=renderHome();
+  else if(route==='articles')view.innerHTML=renderArticles();
+  else if(route==='article')view.innerHTML=renderArticle(arg);
+  else if(route==='submit')view.innerHTML=renderSubmit(arg||null);
+  else if(route==='games')view.innerHTML=renderGames();
+  else if(route==='favorites')view.innerHTML=renderFavorites();
+  else if(route==='profile')view.innerHTML=renderProfile();
+  else if(route==='leaderboard')view.innerHTML=renderLeaderboard();
+  else if(route==='admin'&&(!state.backendActive||state.currentUser?.role==='admin'))view.innerHTML=renderAdmin();
+  else if(route==='admin')view.innerHTML='<div class="empty-state" style="margin-top:50px"><div class="empty-icon">⌑</div><h3>Administrator access only</h3><p>This area is limited to Parts Expedite administrators.</p></div>';
+  else if(['login','signup','forgot-password','change-password'].includes(route))view.innerHTML=renderAuth(route);
+  else{location.hash='#/home';return;}
+  const adminNav=document.querySelector('[data-route="admin"]');
+  if(adminNav)adminNav.hidden=state.backendActive?state.currentUser?.role!=='admin':state.role!=='admin';
+  const bodyField=document.getElementById('articleBody'),bodyCounter=document.getElementById('bodyCount');
+  if(bodyField&&bodyCounter)bodyCounter.textContent=bodyField.value.length.toLocaleString()+' / 30,000';
+  document.getElementById('topName').textContent=state.currentUser?.displayName||state.name||'Guest';
+  document.getElementById('topRole').textContent=roleLabel();
+  document.getElementById('topAvatar').src=state.avatar;
+  const unread=state.currentUser?.role==='admin'
+    ?(state.adminNotifications||[]).filter(n=>!n.readAt).length
+    :(state.notifications||[]).filter(n=>!(n.readAt||n.read_at)).length;
+  const notificationDot=document.querySelector('#notificationButton i');
+  if(notificationDot)notificationDot.style.display=unread?'block':'none';
+  const notificationButton=document.getElementById('notificationButton');
+  if(notificationButton)notificationButton.title=unread?unread+' unread notification(s)':'Notifications';
+  document.querySelectorAll('.nav-item').forEach(el=>el.classList.toggle('active',el.dataset.route===route));
+  document.getElementById('sidebar').classList.remove('open');
+}
+
 function go(route){location.hash='#/'+route;}
 function toggleFavorite(id){if(state.backendActive){toggleBackendFavorite(id);return;}id=String(id);state.favorites=state.favorites.includes(id)?state.favorites.filter(x=>x!==id):[...state.favorites,id];saveState();renderRoute();toast(state.favorites.includes(id)?'Saved to your personal preview list.':'Removed from saved guides.');}
 function openRoleModal(){const modal=document.getElementById('modalContent');modal.innerHTML=`<div class="eyebrow">PREVIEW ACCESS SWITCHER</div><h2 id="modalTitle">Choose a preview role</h2><p>Switch the front-end preview to inspect the screens and permission-based flows for each role. This is not real account access control.</p>${[['member','Member','Submit articles and suggest edits for review.'],['editor','Authorized Editor','Publish new articles and direct edits without review.'],['admin','Administrator','Review submissions, manage content and preview user controls.']].map(([role,label,desc])=>`<button class="role-option ${state.role===role?'active':''}" data-set-role="${role}"><span><strong>${label}</strong><small>${desc}</small></span><b>${state.role===role?'●':'○'}</b></button>`).join('')}`;showModal();}
@@ -546,13 +605,22 @@ document.addEventListener('click',e=>{
  const setRole=e.target.closest('[data-set-role]');if(setRole){if(state.backendActive){toast('Roles are managed by the administrator.');return;}state.role=setRole.dataset.setRole;saveState();closeModal();renderRoute();toast('Preview role changed to '+roleLabel()+'.');return;}
  const adminTab=e.target.closest('[data-admin-tab]');if(adminTab){state.adminTab=adminTab.dataset.adminTab;renderRoute();return;}
  const reviewButton=e.target.closest('[data-review]');if(reviewButton){review(reviewButton.dataset.type,Number(reviewButton.dataset.index),reviewButton.dataset.review);return;}
+ const liveReview=e.target.closest('[data-submission-action]');if(liveReview){reviewLiveSubmission(liveReview.dataset.submissionId,liveReview.dataset.submissionAction);return;}
+ const userAction=e.target.closest('[data-user-action]');if(userAction){performAdminUserAction(userAction.dataset.userId,userAction.dataset.userAction);return;}
+ const recovery=e.target.closest('[data-password-request]');if(recovery){issuePasswordRequest(recovery.dataset.passwordRequest);return;}
+ const readNotice=e.target.closest('[data-admin-notification-read]');if(readNotice){markAdminNotificationRead(readNotice.dataset.adminNotificationRead);return;}
+ const readAll=e.target.closest('[data-notification-read-all]');if(readAll){markAllNotificationsRead();return;}
  const rec=e.target.closest('[data-recycle]');if(rec){recycleArticle(rec.dataset.recycle);return;}
  const restore=e.target.closest('[data-restore]');if(restore){const item=state.recycle.find(x=>String(x.id)===String(restore.dataset.restore));if(item){state.articles.unshift(item.article);state.recycle=state.recycle.filter(x=>String(x.id)!==String(item.id));saveState();renderRoute();toast('Restored in preview.');}return;}
- const avatar=e.target.closest('[data-avatar]');if(avatar){if(state.backendActive){toast('Avatar updates will be enabled in the next backend step.');return;}state.avatar=avatar.dataset.avatar;saveState();renderRoute();toast('Preview avatar updated.');return;}
+ const liveRestore=e.target.closest('[data-restore-article]');if(liveRestore){restoreBackendArticle(liveRestore.dataset.restoreArticle);return;}
+ const archive=e.target.closest('[data-archive-article]');if(archive){archiveBackendArticle(archive.dataset.archiveArticle);return;}
+ const avatar=e.target.closest('[data-avatar]');if(avatar){if(state.backendActive){backendRequest('/api/auth/profile',{method:'POST',body:JSON.stringify({avatarKey:avatar.dataset.avatar})}).then(async()=>{await refreshBackendData();renderRoute();toast('Avatar updated.');}).catch(error=>toast(error.message));return;}state.avatar=avatar.dataset.avatar;saveState();renderRoute();toast('Preview avatar updated.');return;}
  const clear=e.target.closest('[data-action="clear-search"]');if(clear){state.search='';state.activeCategory='all';renderRoute();return;}
- const changeName=e.target.closest('[data-action="change-name"]');if(changeName){if(state.backendActive){toast('Profile editing will be enabled in the next backend step.');return;}const name=prompt('Display name for this browser preview:',state.name);if(name&&name.trim()){state.name=name.trim().slice(0,40);saveState();renderRoute();}return;}
+ const changeName=e.target.closest('[data-action="change-name"]');if(changeName){if(state.backendActive){updateAccountProfile();return;}const name=prompt('Display name for this browser preview:',state.name);if(name&&name.trim()){state.name=name.trim().slice(0,40);saveState();renderRoute();}return;}
+ const logout=e.target.closest('[data-action="logout"]');if(logout){signOut();return;}
  const modalClose=e.target.closest('#modalClose');if(modalClose){closeModal();return;}
-});
+}); 
+
 document.getElementById('globalSearch').addEventListener('keydown',e=>{if(e.key==='Enter'){state.search=e.target.value.trim();state.activeCategory='all';if(location.hash.startsWith('#/articles'))renderRoute();else go('articles');}});
 document.getElementById('globalSearch').addEventListener('input',e=>{if(!e.target.value){state.search='';}});
 document.getElementById('notificationButton').addEventListener('click',notify);
