@@ -1,37 +1,48 @@
 # Parts Expedite Knowledge Base
 
-A standalone amber-themed front-end preview for the Parts Expedite team.
+A responsive knowledge workspace for the Parts Expedite team, with the original imported guide library, screenshot references, knowledge games placeholders and a Cloudflare-backed live account/publishing workflow.
 
-## Source files
+## Frontend files
 
-The frontend is committed as normal, browsable project files:
+- `index.html` — application shell.
+- `css/app.css` — responsive amber / graphite design system and supplied automotive-parts doodle background.
+- `js/app.js` — navigation, library, article reader, account forms, profile, admin workspace and publishing workflow.
+- `data/articles-*.js` — 30 imported source articles.
+- `data/article-images.js` — 60 screenshot references across 19 guides, pointing to 58 unique AVIF files.
+- `data/parts-expedite-article-images.zip` — original AVIF screenshot archive used by the build and Cloudflare deployment.
+- `backend/worker.js` and `backend/migrations/` — Cloudflare Worker API and ordered D1 schema/data migrations.
+- `assets/parts-doodle-background.svg` — the exact parts doodle artwork supplied for the site background.
+- `avatars/*.svg` — original Parts Expedite profile portraits.
 
-- `index.html` — application shell and page metadata.
-- `css/app.css` — complete responsive amber / graphite design system.
-- `js/app.js` — frontend navigation, article catalogue, forms, profile and browser-local preview interactions.
-- `assets/parts-expedite-mark.svg` — team identity mark.
-- `assets/parts-doodle-background.svg` — automotive-parts doodle wallpaper.
-- `assets/favicon.svg`, `assets/apple-touch-icon.svg` and `site.webmanifest` — browser and installed-app icons.
-- `avatars/*.svg` — original superhero profile portraits.
-- `.github/workflows/pages.yml` — source validation and GitHub Pages deployment.
+## Preview site
 
-## Front-end preview scope
+The GitHub Pages workflow validates the source and publishes a static preview:
 
-- Responsive Parts Expedite knowledge library, categories, article reader and search.
-- Built-in article submission and edit layouts.
-- Member, Authorized Editor and Administrator preview modes.
-- Admin review panels, revision history, recycle-bin, notifications and user-management layouts.
-- Profile, superhero avatar selection and favorites.
-- Four reserved game cards; game design is intentionally deferred.
+https://brandsupport.github.io/parts-expedite-knowledgebase/
 
-## GitHub Pages
+This preview uses embedded image assets and does not provide cross-user authentication or shared database storage. Do not use it for live account tests.
 
-The Pages workflow validates the individual HTML, CSS, JavaScript and asset files, creates a static deployment artifact, then deploys it to GitHub Pages.
+## Live workspace
 
-To enable deployment for this repository, open **Settings → Pages** and set **Build and deployment → Source** to **GitHub Actions**.
+The production app is served by the Cloudflare Worker from the same origin as its API. It uses:
 
-## Backend phase and preview limitations
+- **D1:** accounts, roles, sessions, articles, review submissions, revisions, favorites and notifications.
+- **R2:** private source screenshots and uploaded article images.
+- **Worker:** secure session authentication, role checks, account approvals, Authorized Editor grants, publishing review and protected image delivery.
 
-This is a static frontend prototype. Its accounts, role switcher, submissions, approvals, revisions, favorites and admin controls are browser-local demonstrations only. They do not provide authentication, permissions, durable storage or cross-user data. The separate Cloudflare Workers + D1 backend will provide those capabilities in the backend phase.
+Follow [backend/README.md](backend/README.md) for the Cloudflare resource setup, GitHub Actions secrets, first-admin bootstrap and safe authentication activation sequence.
 
-**Do not enter real passwords, personal data or confidential operational information into this prototype.**
+The Cloudflare deployment workflow is manual:
+**Actions → Deploy Parts Expedite live Cloudflare Worker**.
+
+Sign-in is deliberately disabled until an initial Administrator has been created and the one-time bootstrap secret has been removed.
+
+## Quality checks
+
+```bash
+npm install
+npm run check
+npm run build
+```
+
+The GitHub Pages workflow also validates the 30 imported articles, 60 image references, 58 unique AVIF files and the SQLite-compatible migration chain.
