@@ -8,7 +8,8 @@
   },
   "scripts": {
     "build": "node scripts/build-static.mjs",
-    "dev": "npm run build && wrangler pages dev dist",
+    "dev": "npm run build && wrangler dev --config wrangler.jsonc",
+    "deploy": "wrangler deploy --config wrangler.jsonc",
     "db:migrate:local": "wrangler d1 migrations apply parts-expedite-db --local",
     "db:migrate:remote": "wrangler d1 migrations apply parts-expedite-db --remote",
     "db:status:remote": "wrangler d1 migrations list parts-expedite-db --remote",
