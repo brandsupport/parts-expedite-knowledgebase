@@ -45,6 +45,7 @@ jobs:
           test -s assets/parts-doodle-background.svg
           node --check js/app.js
           node --check backend/worker.js
+          node --check 'functions/api/[[path]].js'
           node --check data/articles-01.js
           node --check data/articles-02.js
           node --check data/articles-03.js
