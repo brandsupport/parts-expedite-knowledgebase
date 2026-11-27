@@ -516,7 +516,7 @@ function notify(){
   const unread=items.filter(item=>!(item.readAt||item.read_at)).length;
   const rows=items.length?items.map(item=>{
     const read=!!(item.readAt||item.read_at);
-    return '<article class="admin-item surface"><div><span class="pill '+(read?'':'amber')+'">'+(read?'READ':'NEW')+'</span><h3>'+escapeHTML(item.title||'Notification')+'</h3><p>'+escapeHTML(item.message||'')+'</p><p class="muted">'+escapeHTML(shortDate(item.createdAt||item.created_at))+'</p></div>'+(isAdmin&&!read?'<button class="btn ghost small" data-admin-notification-read="'+escapeHTML(item.id)+'">Mark read</button>':'')+'</article>';
+    return '<article class="admin-item surface"><div><span class="pill '+(read?'':'amber')+'">'+(read?'READ':'NEW')+'</span><h3>'+escapeHTML(item.title||'Notification')+'</h3><p>'+escapeHTML(item.message||'')+'</p><p class="muted">'+escapeHTML(shortDate(item.createdAt||item.created_at))+'</p></div>'+(isAdmin&&!read?'<button class="btn ghost small" data-admin-notification-read="'+escapeHTML(item.id)+'">Mark read</button>':(!isAdmin&&!read?'<button class="btn ghost small" data-user-notification-read="'+escapeHTML(item.id)+'">Mark read</button>':''))+'</article>';
   }).join(''):'<div class="empty-state"><div class="empty-icon">♧</div><h3>No notifications</h3><p>Account updates, article decisions and workspace alerts will appear here.</p></div>';
   document.getElementById('modalContent').innerHTML='<div class="eyebrow">WORKSPACE ACTIVITY</div><h2 id="modalTitle">Notifications</h2><p>'+unread+' unread notification'+(unread===1?'':'s')+'.</p>'+(unread?'<div style="display:flex;justify-content:flex-end;margin-bottom:12px"><button class="btn ghost small" data-notification-read-all>Mark all as read</button></div>':'')+'<div class="admin-list">'+rows+'</div>';
   showModal();
@@ -571,6 +571,12 @@ async function markAdminNotificationRead(id){
     await refreshBackendData();notify();
   }catch(error){toast(error.message);}
 }
+async function markUserNotificationRead(id){
+  try{
+    await backendRequest('/api/notifications/'+encodeURIComponent(id)+'/read',{method:'PATCH',body:JSON.stringify({})});
+    await refreshBackendData();notify();
+  }catch(error){toast(error.message);}
+}
 async function restoreBackendArticle(id){
   try{
     await backendRequest('/api/admin/articles/'+encodeURIComponent(id)+'/restore',{method:'PATCH',body:JSON.stringify({})});
@@ -616,6 +622,7 @@ document.addEventListener('click',e=>{
  const userAction=e.target.closest('[data-user-action]');if(userAction){performAdminUserAction(userAction.dataset.userId,userAction.dataset.userAction);return;}
  const recovery=e.target.closest('[data-password-request]');if(recovery){issuePasswordRequest(recovery.dataset.passwordRequest);return;}
  const readNotice=e.target.closest('[data-admin-notification-read]');if(readNotice){markAdminNotificationRead(readNotice.dataset.adminNotificationRead);return;}
+ const userReadNotice=e.target.closest('[data-user-notification-read]');if(userReadNotice){markUserNotificationRead(userReadNotice.dataset.userNotificationRead);return;}
  const readAll=e.target.closest('[data-notification-read-all]');if(readAll){markAllNotificationsRead();return;}
  const rec=e.target.closest('[data-recycle]');if(rec){recycleArticle(rec.dataset.recycle);return;}
  const restore=e.target.closest('[data-restore]');if(restore){const item=state.recycle.find(x=>String(x.id)===String(restore.dataset.restore));if(item){state.articles.unshift(item.article);state.recycle=state.recycle.filter(x=>String(x.id)!==String(item.id));saveState();renderRoute();toast('Restored in preview.');}return;}
