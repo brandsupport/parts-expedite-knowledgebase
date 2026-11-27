@@ -1,5 +1,5 @@
 const COOKIE="__Host-pe_session", TTL=604800, ITERATIONS=210000, MAX_JSON=262144, MAX_IMAGE=12582912;
-const TYPES=new Map([["image/jpeg","jpg"],["image/png","png"],["image/webp","webp"]]);
+const TYPES=new Map([["image/jpeg","jpg"],["image/png","png"],["image/webp","webp"],["image/avif","avif"]]);
 const enc=new TextEncoder();
 class HttpError extends Error{constructor(status,message){super(message);this.status=status;}}
 const json=(data,status=200,headers={})=>new Response(JSON.stringify(data),{status,headers:{"Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store","X-Content-Type-Options":"nosniff",...headers}});
