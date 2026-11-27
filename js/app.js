@@ -235,7 +235,9 @@ function renderArticle(id){
   const gallery=imageRows.length?'<section class="article-images"><h3>Visual guide</h3><div class="article-image-grid">'+imageRows.map(img=>{
     const src=img.src||'';
     if(!src)return '';
-    return '<figure class="article-image"><a href="'+escapeHTML(src)+'" target="_blank" rel="noopener"><img loading="lazy" src="'+escapeHTML(src)+'" alt="'+escapeHTML(img.alt||img.caption||'Article screenshot')+'"></a><figcaption>PDF page '+escapeHTML(img.sourcePage||img.page||'')+' · '+escapeHTML(img.caption||img.alt||'Reference screenshot')+'</figcaption></figure>';
+    const alt=img.alt||img.caption||'Article screenshot';
+    const caption='PDF page '+(img.sourcePage||img.page||'')+' · '+(img.caption||img.alt||'Reference screenshot');
+    return '<figure class="article-image"><button type="button" class="article-image-open" data-view-image="'+escapeHTML(src)+'" data-image-alt="'+escapeHTML(alt)+'" data-image-caption="'+escapeHTML(caption)+'" aria-label="Enlarge screenshot: '+escapeHTML(alt)+'"><img loading="lazy" src="'+escapeHTML(src)+'" alt="'+escapeHTML(alt)+'"><span class="article-image-zoom-hint">Click to enlarge <b>⤢</b></span></button><figcaption>'+escapeHTML(caption)+'</figcaption></figure>';
   }).join('')+'</div></section>':'';
   return banner()+'<article class="article-detail surface"><div class="detail-actions"><button class="text-link" data-route="articles">← BACK TO LIBRARY</button><div class="admin-actions"><button class="btn secondary small" data-favorite="'+escapeHTML(article.id)+'">'+(state.favorites.includes(String(article.id))?'★ Saved':'☆ Save guide')+'</button><button class="btn secondary small" data-edit-article="'+escapeHTML(article.id)+'">Edit / suggest update ✎</button></div></div><span class="pill amber" style="margin-top:22px">'+escapeHTML(getCategory(article.category))+'</span><h1 class="detail-title">'+escapeHTML(article.title)+'</h1><div class="detail-meta"><span>'+escapeHTML(article.id)+'</span><span>·</span><span>UPDATED '+escapeHTML(shortDate(article.updated).toUpperCase())+'</span><span>·</span><span>BY '+escapeHTML(article.author||'PARTS EXPEDITE TEAM').toUpperCase()+'</span></div>'+gallery+'<div class="detail-body">'+bodyToHTML(article.body)+'</div><div class="detail-foot">'+tags+'</div>'+source+'</article>';
 }
@@ -261,7 +263,24 @@ function go(route){location.hash='#/'+route;}
 function toggleFavorite(id){if(state.backendActive){toggleBackendFavorite(id);return;}id=String(id);state.favorites=state.favorites.includes(id)?state.favorites.filter(x=>x!==id):[...state.favorites,id];saveState();renderRoute();toast(state.favorites.includes(id)?'Saved to your personal preview list.':'Removed from saved guides.');}
 function openRoleModal(){const modal=document.getElementById('modalContent');modal.innerHTML=`<div class="eyebrow">PREVIEW ACCESS SWITCHER</div><h2 id="modalTitle">Choose a preview role</h2><p>Switch the front-end preview to inspect the screens and permission-based flows for each role. This is not real account access control.</p>${[['member','Member','Submit articles and suggest edits for review.'],['editor','Authorized Editor','Publish new articles and direct edits without review.'],['admin','Administrator','Review submissions, manage content and preview user controls.']].map(([role,label,desc])=>`<button class="role-option ${state.role===role?'active':''}" data-set-role="${role}"><span><strong>${label}</strong><small>${desc}</small></span><b>${state.role===role?'●':'○'}</b></button>`).join('')}`;showModal();}
 function showModal(){document.getElementById('modalBackdrop').hidden=false;}
-function closeModal(){document.getElementById('modalBackdrop').hidden=true;}
+function openImageViewer(src,alt,caption){
+  const backdrop=document.getElementById('modalBackdrop');
+  const modal=document.getElementById('modal');
+  const content=document.getElementById('modalContent');
+  content.innerHTML='<div class="image-viewer-content"><div class="image-viewer-heading"><div><div class="eyebrow">ARTICLE SCREENSHOT</div><h2 id="modalTitle">Image preview</h2></div><span>Press Esc or click outside to close</span></div><img class="image-viewer-image" src="'+escapeHTML(src)+'" alt="'+escapeHTML(alt||'Article screenshot')+'"><p class="image-viewer-caption">'+escapeHTML(caption||alt||'')+'</p></div>';
+  modal.classList.add('image-viewer-modal');
+  backdrop.classList.add('image-viewer-backdrop');
+  showModal();
+}
+function closeModal(){
+  const backdrop=document.getElementById('modalBackdrop');
+  const modal=document.getElementById('modal');
+  const wasImageViewer=modal.classList.contains('image-viewer-modal');
+  backdrop.hidden=true;
+  backdrop.classList.remove('image-viewer-backdrop');
+  modal.classList.remove('image-viewer-modal');
+  if(wasImageViewer)document.getElementById('modalContent').innerHTML='';
+}
 function notify(){document.getElementById('modalContent').innerHTML=`<div class="eyebrow">NOTIFICATIONS</div><h2 id="modalTitle">You're all caught up.</h2><p>Notifications for article reviews, account approvals and updates will appear here once the backend is connected.</p><div class="empty-state"><div class="empty-icon">♧</div><h3>No live notifications</h3><p>This is a front-end preview, so no shared account activity is being received.</p></div>`;showModal();}
 function submitArticle(form){if(state.backendActive){submitArticleToBackend(form);return;}const fd=new FormData(form);const item={title:String(fd.get('title')).trim(),category:String(fd.get('category')),tags:String(fd.get('tags')).split(',').map(x=>x.trim()).filter(Boolean),body:String(fd.get('body')).trim(),reference:String(fd.get('reference')).trim(),summary:String(fd.get('body')).trim().replace(/[#*\n-]/g,' ').slice(0,150),author:state.name,updated:new Date().toISOString(),sample:false};if(item.title.length<3||item.body.length<10){toast('Please complete the required fields.');return;}const canPublish=state.role==='admin'||state.role==='editor';if(state.editingId){const original=getArticle(state.editingId);if(!original){toast('The original guide could not be found.');return;}if(canPublish){state.revisions.unshift({id:'REV-'+Date.now(),article:{...item,id:original.id},original:{title:original.title,body:original.body},status:'published',author:state.name,created:new Date().toISOString()});state.articles=state.articles.map(a=>String(a.id)===String(original.id)?{...item,id:original.id,status:'published'}:a);toast('Preview: update published directly.');}else{state.revisions.unshift({id:'REV-'+Date.now(),article:{...item,id:original.id},original:{title:original.title,body:original.body},status:'pending',author:state.name,created:new Date().toISOString()});toast('Preview: edit suggestion sent for review.');}}else{item.id='PE-'+String(Date.now()).slice(-7);item.status=canPublish?'published':'pending';if(canPublish){state.articles.unshift(item);toast('Preview: new article published.');}else{state.submissions.unshift({id:'SUB-'+Date.now(),article:item,status:'pending',author:state.name,created:new Date().toISOString()});toast('Preview: article submitted for review.');}}saveState();state.editingId=null;go('profile');}
 function review(type,index,action){const list=type==='submissions'?state.submissions:state.revisions;const req=list[index];if(!req)return;if(action==='approve'){if(type==='submissions'){state.articles.unshift({...req.article,status:'published'});}else{const updated={...req.article,status:'published'};state.articles=state.articles.map(a=>String(a.id)===String(updated.id)?updated:a);state.revisionHistory.unshift({...req,status:'approved',reviewedAt:new Date().toISOString()});}list.splice(index,1);toast('Preview: item approved and published.');}else{if(type==='revisions')state.revisionHistory.unshift({...req,status:'rejected',reviewedAt:new Date().toISOString()});list.splice(index,1);toast('Preview: item rejected.');}saveState();renderRoute();}
@@ -271,6 +290,7 @@ function resetPreview(){if(!confirm('Reset all Parts Expedite preview data in th
 // Delegated page interactions
 
 document.addEventListener('click',e=>{
+ const image=e.target.closest('[data-view-image]');if(image){e.preventDefault();openImageViewer(image.dataset.viewImage,image.dataset.imageAlt,image.dataset.imageCaption);return;}
  const route=e.target.closest('[data-route]');if(route){e.preventDefault();go(route.dataset.route);return;}
  const fav=e.target.closest('[data-favorite]');if(fav){e.preventDefault();toggleFavorite(fav.dataset.favorite);return;}
  const open=e.target.closest('[data-open-article]');if(open){const id=open.dataset.openArticle;if(state.backendActive){(async()=>{try{const result=await backendRequest('/api/articles/'+encodeURIComponent(id));const mapped=mapBackendArticle(result.article);state.articles=state.articles.map(a=>String(a.id)===String(id)?mapped:a);go('article/'+id);}catch(error){toast(error.message);}})();}else go('article/'+id);return;}
