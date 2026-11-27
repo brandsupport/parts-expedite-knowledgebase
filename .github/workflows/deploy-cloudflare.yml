@@ -74,13 +74,6 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: d1 migrations apply parts-expedite-db --remote
 
-      - name: Upload source screenshots to private R2
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          R2_BUCKET: parts-expedite-media
-        run: npm run r2:upload-source-images
-
       - name: Deploy Worker and same-origin website
         uses: cloudflare/wrangler-action@v4
         with:
