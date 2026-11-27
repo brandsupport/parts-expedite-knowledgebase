@@ -21,7 +21,9 @@ const AVATARS = [
 const SEED_ARTICLES = window.PE_IMPORTED_ARTICLES || [];
 const state = {
   role: localStorage.getItem('pe-preview-role') || 'member',
-  backendActive:false, currentUser:null,
+  backendActive:false, backendConfigured:false, currentUser:null,
+  adminUsers:[], adminSubmissions:[], adminNotifications:[], passwordRequests:[],
+  mySubmissions:[], notifications:[], archivedArticles:[],
   name: localStorage.getItem('pe-preview-name') || 'Momo',
   avatar: localStorage.getItem('pe-preview-avatar') || AVATARS[0][1],
   favorites: loadJSON('pe-favorites',[]),
@@ -84,22 +86,63 @@ function mapBackendArticle(a){
     sourceDocument:a.sourceDocument||source.sourceDocument||source.reference||null,
     sourcePages:a.sourcePages||source.sourcePages||null,
     imported:!!(a.sourceDocument||source.imported||source.reference),
-    images:Array.isArray(a.images)?a.images:[],
+    images:Array.isArray(a.images)?a.images.map(image=>({...image,src:image.src||('/api/media/'+encodeURIComponent(image.id))})):[],
     sample:false
   };
 }
 async function refreshBackendData(){
   const me=await backendRequest('/api/auth/me');
   state.currentUser=me.user||null;
+  state.backendConfigured=me.configured!==false;
   state.role=state.currentUser?.role||'member';
   state.name=state.currentUser?.displayName||'Guest';
   state.avatar=state.currentUser?.avatarKey||'avatars/amber-sentinel.svg';
   const articles=await backendRequest('/api/articles');
   state.articles=(articles.articles||[]).map(mapBackendArticle);
   state.favorites=[];
-  if(state.currentUser){
-    const saved=await backendRequest('/api/favorites');
-    state.favorites=(saved.favorites||[]).map(String);
+  state.mySubmissions=[];
+  state.notifications=[];
+  state.adminUsers=[];
+  state.adminSubmissions=[];
+  state.adminNotifications=[];
+  state.passwordRequests=[];
+  state.revisions=[];
+  state.archivedArticles=[];
+  if(!state.currentUser)return;
+
+  const safeGet=async(path,fallback,key)=>{
+    try{return await backendRequest(path);}catch(error){
+      console.warn('Parts Expedite API request failed:',path,error.message);
+      return fallback;
+    }
+  };
+  const requests=[
+    safeGet('/api/favorites',{favorites:[]}),
+    safeGet('/api/my/submissions',{submissions:[]}),
+    safeGet('/api/notifications',{notifications:[]})
+  ];
+  const admin=state.currentUser.role==='admin';
+  if(admin){
+    requests.push(
+      safeGet('/api/admin/users',{users:[]}),
+      safeGet('/api/admin/submissions',{submissions:[]}),
+      safeGet('/api/admin/notifications',{notifications:[],unreadCount:0}),
+      safeGet('/api/admin/password-requests',{requests:[]}),
+      safeGet('/api/admin/revisions',{revisions:[]}),
+      safeGet('/api/admin/archived',{articles:[]})
+    );
+  }
+  const results=await Promise.all(requests);
+  state.favorites=(results[0].favorites||[]).map(String);
+  state.mySubmissions=results[1].submissions||[];
+  state.notifications=results[2].notifications||[];
+  if(admin){
+    state.adminUsers=results[3].users||[];
+    state.adminSubmissions=results[4].submissions||[];
+    state.adminNotifications=results[5].notifications||[];
+    state.passwordRequests=results[6].requests||[];
+    state.revisions=results[7].revisions||[];
+    state.archivedArticles=results[8].articles||[];
   }
 }
 async function initializeBackend(){
@@ -109,51 +152,79 @@ async function initializeBackend(){
     const health=await response.json();
     if(!health.ok)return;
     state.backendActive=true;
+    state.backendConfigured=health.authEnabled===true;
     await refreshBackendData();
     renderRoute();
   }catch(error){
     state.backendActive=false;
+    state.backendConfigured=false;
   }
 }
 async function submitAuthToBackend(form){
-  const route=form.dataset.authForm,inputs=[...form.querySelectorAll('input')];
+  const route=form.dataset.authForm;
+  const field=name=>form.elements.namedItem(name)?.value||'';
   try{
     if(route==='login'){
-      const result=await backendRequest('/api/auth/login',{method:'POST',body:JSON.stringify({email:inputs[0]?.value,password:inputs[1]?.value})});
-      state.currentUser=result.user;await refreshBackendData();go('home');toast('Signed in successfully.');
+      const result=await backendRequest('/api/auth/login',{method:'POST',body:JSON.stringify({email:field('email'),password:field('password')})});
+      state.currentUser=result.user||null;
+      await refreshBackendData();
+      if(state.currentUser?.mustChangePassword){go('change-password');toast('For security, update the temporary password before continuing.');}
+      else{go('home');toast('Signed in successfully.');}
     }else if(route==='signup'){
-      const result=await backendRequest('/api/auth/register',{method:'POST',body:JSON.stringify({displayName:inputs[0]?.value,email:inputs[1]?.value,password:inputs[2]?.value})});
-      toast(result.message||'Account request submitted.');go('login');
-    }else{
-      toast('Password recovery will be enabled after the email service is connected.');
+      if(field('password')!==field('confirmPassword')){toast('The passwords do not match.');return;}
+      const result=await backendRequest('/api/auth/register',{method:'POST',body:JSON.stringify({displayName:field('displayName'),email:field('email'),password:field('password'),confirmPassword:field('confirmPassword')})});
+      toast(result.message||'Account request submitted.');
+      go('login');
+    }else if(route==='forgot-password'){
+      const result=await backendRequest('/api/auth/forgot-password',{method:'POST',body:JSON.stringify({email:field('email')})});
+      toast(result.message||'Recovery request sent, if the account exists.');
+      go('login');
+    }else if(route==='change-password'){
+      if(field('password')!==field('confirmPassword')){toast('The new passwords do not match.');return;}
+      const result=await backendRequest('/api/auth/change-password',{method:'POST',body:JSON.stringify({currentPassword:field('currentPassword'),password:field('password')})});
+      await refreshBackendData();
+      go('home');
+      toast(result.message||'Password updated.');
     }
   }catch(error){toast(error.message);}
 }
+
 async function submitArticleToBackend(form){
   const fd=new FormData(form),payload={
     title:String(fd.get('title')||'').trim(),category:String(fd.get('category')||''),
     tags:String(fd.get('tags')||'').split(',').map(x=>x.trim()).filter(Boolean),
-    body:String(fd.get('body')||'').trim(),summary:String(fd.get('body')||'').trim().replace(/[#*\n-]/g,' ').slice(0,150),
+    body:String(fd.get('body')||'').trim(),summary:String(fd.get('body')||'').trim().replace(/[#*\\n-]/g,' ').slice(0,150),
     sourceDocument:String(fd.get('reference')||'').trim(),changeNote:String(fd.get('changeNote')||'').trim()
   };
   if(payload.title.length<3||payload.body.length<10){toast('Please complete the required fields.');return;}
   const files=[...(document.getElementById('articleFiles')?.files||[])];
-  if(files.length&&state.currentUser?.role==='member'){toast('Members can submit the guide for review; image attachments require an Authorized Editor at this stage.');return;}
+  if(files.length>8){toast('Please attach no more than 8 screenshots.');return;}
+  if(files.some(file=>file.size>12*1024*1024)){toast('Each screenshot must be 12 MB or smaller.');return;}
   try{
     const editing=!!state.editingId;
     const path=editing?'/api/articles/'+encodeURIComponent(state.editingId):'/api/articles';
     const result=await backendRequest(path,{method:editing?'PUT':'POST',body:JSON.stringify(payload)});
-    const articleId=result.article?.id||state.editingId;
-    if(articleId&&files.length){
+    const isPending=result.status==='pending';
+    const targetId=isPending?result.submissionId:(result.article?.id||state.editingId);
+    if(targetId&&files.length){
       for(const file of files){
-        const upload=new FormData();upload.append('file',file);upload.append('alt',file.name);upload.append('caption',file.name);
-        await backendRequest('/api/articles/'+encodeURIComponent(articleId)+'/images',{method:'POST',body:upload});
+        const upload=new FormData();
+        upload.append('file',file);
+        upload.append('alt',file.name);
+        upload.append('caption',file.name);
+        const uploadPath=isPending
+          ?'/api/submissions/'+encodeURIComponent(targetId)+'/images'
+          :'/api/articles/'+encodeURIComponent(targetId)+'/images';
+        await backendRequest(uploadPath,{method:'POST',body:upload});
       }
     }
-    state.editingId=null;await refreshBackendData();go(editing?'article/'+articleId:'articles');
-    toast(result.status==='pending'?'Sent to the administrator review queue.':'Article saved to the shared library.');
+    state.editingId=null;
+    await refreshBackendData();
+    go(isPending?'profile':(editing?'article/'+targetId:'articles'));
+    toast(isPending?'Your contribution and screenshots were sent for administrator review.':'Article published to the shared library.');
   }catch(error){toast(error.message);}
 }
+
 async function toggleBackendFavorite(id){
   if(!state.currentUser){go('login');toast('Sign in to save articles.');return;}
   const exists=state.favorites.includes(String(id));
@@ -165,7 +236,7 @@ async function toggleBackendFavorite(id){
 }
 
 function roleLabel(role=state.role){
-  if(state.backendActive)return state.currentUser?({admin:'Administrator',editor:'Authorized Editor',member:'Member'}[state.currentUser.role]||'Member'):'Not signed in';
+  if(state.backendActive)return state.currentUser?({admin:'Administrator',authorized_editor:'Authorized Editor',editor:'Authorized Editor',member:'Member'}[state.currentUser.role]||'Member'):'Not signed in';
   return role==='admin'?'Administrator preview':role==='editor'?'Authorized editor preview':'Member preview';
 }
 function getArticle(id){return state.articles.find(a=>String(a.id)===String(id));}
@@ -245,16 +316,38 @@ function renderSubmit(editId=null){const article=editId?getArticle(editId):null;
 function renderGames(){const games=[['Parts Rush','🏁','A quick-fire challenge built around speed, recall and accurate answers.'],['Parts Puzzle','🧩','Piece together the details and connect the right information.'],['Parts Quiz','💡','Test product, process and parts knowledge in short rounds.'],['Parts Match','🃏','Match references, descriptions and the details that belong together.']];return `${titleBlock('LEARN BY PLAYING','The knowledge <span class="accent">garage.</span>','Four original game spaces are reserved for Parts Expedite. We’ll design each experience together in a later phase.')}<div class="preview-banner" style="margin-top:22px"><span class="notice-icon">⚡</span><div><strong>Game development is intentionally parked</strong>These are themed placeholders only. No existing Brand Support games have been copied into this project.</div></div><div class="games-grid">${games.map(([name,icon,desc],i)=>`<article class="game-card surface surface-hover"><div class="game-art">${icon}</div><div><span class="pill amber">GAME ${String(i+1).padStart(2,'0')} · COMING LATER</span><h3>${name}</h3><p>${desc}</p><button class="btn secondary small" disabled>Design phase pending</button></div></article>`).join('')}</div>`;}
 function renderFavorites(){const list=state.articles.filter(a=>state.favorites.includes(String(a.id)));return `${titleBlock('YOUR SPACE','Your saved <span class="accent">guides.</span>','Keep the references you return to most close at hand.')}<div style="margin-top:22px">${list.length?`<div class="article-grid">${list.map(articleCard).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">☆</div><h3>Your saved library starts here</h3><p>Save any guide with the star icon and it will appear in this space.</p><button class="btn" data-route="articles">Explore articles</button></div>`}</div>`;}
 function renderProfile(){
+  if(!state.backendActive)return renderProfilePreview();
+  const user=state.currentUser;
+  const avatar=escapeHTML(state.avatar);
+  const contributions=state.mySubmissions||[];
+  const contributionMarkup=contributions.length?'<div class="admin-list">'+contributions.map(item=>{
+    const proposed=item.proposed||{};
+    const status=String(item.status||'pending').toLowerCase();
+    return '<article class="admin-item surface"><div><span class="pill '+(status==='pending'?'amber':status==='rejected'?'red':'green')+'">'+escapeHTML(status.toUpperCase())+'</span><h3>'+escapeHTML(proposed.title||'Untitled contribution')+'</h3><p>'+escapeHTML(item.requestType==='update'?'Edit suggestion':'New article')+' · '+escapeHTML(item.id)+' · '+escapeHTML(shortDate(item.createdAt))+'</p>'+(item.reviewNote?'<p class="muted">'+escapeHTML(item.reviewNote)+'</p>':'')+'</div><span class="article-meta">'+escapeHTML(getCategory(proposed.category))+'</span></article>';
+  }).join('')+'</div>':'<div class="empty-state"><div class="empty-icon">＋</div><h3>No contributions yet</h3><p>Your article submissions and review decisions will appear here.</p><button class="btn secondary" data-route="submit">Create an article</button></div>';
+  return `${titleBlock('YOUR PROFILE','Your Parts Expedite <span class="accent">identity.</span>','Your shared account, profile settings and contribution history.')}${banner()}<div class="profile-layout"><section class="profile-card surface"><img class="profile-portrait" src="${avatar}" alt="Profile avatar"><h2>${escapeHTML(user?.displayName||'Colleague')}</h2><p>${escapeHTML(roleLabel())}</p><span class="pill green">LIVE ACCOUNT</span><p class="muted" style="margin-top:9px">${escapeHTML(user?.email||'')}</p><div style="margin-top:17px;display:flex;gap:7px;justify-content:center;flex-wrap:wrap"><button class="btn secondary" data-action="change-name">Edit display name</button><button class="btn secondary" data-route="change-password">Change password</button><button class="btn ghost" data-action="logout">Sign out</button></div></section><section class="avatar-picker surface"><h2 class="form-section-title">Choose your hero avatar</h2><p class="muted" style="font-size:10px;margin-top:-7px">Your avatar is saved to your shared account.</p><div class="avatar-grid">${AVATARS.map(([name,src])=>`<button class="avatar-choice ${state.avatar===src?'selected':''}" data-avatar="${src}" title="${name}"><img src="${src}" alt="${name}"></button>`).join('')}</div></section></div><div class="section-head"><div><h2>My submissions & edit suggestions</h2><p>Live statuses from the shared publishing workflow.</p></div><button class="btn secondary small" data-route="submit">Submit a guide</button></div>${contributionMarkup}`;
+}
+function renderProfilePreview(){
   const avatar=escapeHTML(state.avatar);
   const contributions=[...state.submissions.map(x=>({...x,kind:'New article'})),...state.revisions.map(x=>({...x,kind:'Edit suggestion'}))].sort((a,b)=>String(b.created||'').localeCompare(String(a.created||'')));
   const contributionMarkup=contributions.length?`<div class="admin-list">${contributions.map(item=>`<article class="admin-item surface"><div><span class="pill ${item.status==='pending'?'amber':item.status==='rejected'?'red':'green'}">${escapeHTML((item.status||'pending').toUpperCase())}</span><h3>${escapeHTML(item.article?.title||'Untitled contribution')}</h3><p>${escapeHTML(item.kind)} · ${escapeHTML(item.id||'Preview')} · ${escapeHTML(shortDate(item.created))}</p></div><span class="article-meta">${escapeHTML(getCategory(item.article?.category))}</span></article>`).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">＋</div><h3>No contributions yet</h3><p>Your article submissions and edit suggestions will be tracked here.</p><button class="btn secondary" data-route="submit">Create an article</button></div>`;
-  return `${titleBlock('YOUR PROFILE','Your Parts Expedite <span class="accent">identity.</span>','Profile, avatar and personal preview settings.')}${banner()}<div class="profile-layout"><section class="profile-card surface"><img class="profile-portrait" src="${avatar}" alt="Selected superhero avatar"><h2>${escapeHTML(state.name)}</h2><p>${escapeHTML(roleLabel())}</p><span class="pill amber">LOCAL PREVIEW PROFILE</span><div style="margin-top:17px;display:flex;gap:7px;justify-content:center;flex-wrap:wrap"><button class="btn secondary" data-action="change-name">Edit display name</button><button class="btn secondary" data-action="choose-role">Preview role</button></div><div class="tip-box" style="margin-top:17px;text-align:left"><strong>ACCOUNT / SECURITY</strong><p>Login, account approval, password reset and secure sessions will be wired to the backend later. This preview does not authenticate anyone.</p><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px"><button class="btn ghost small" data-route="login">Sign in UI</button><button class="btn ghost small" data-route="signup">Sign up UI</button><button class="btn ghost small" data-route="forgot-password">Recovery UI</button></div></div></section><section class="avatar-picker surface"><h2 class="form-section-title">Choose your hero avatar</h2><p class="muted" style="font-size:10px;margin-top:-7px">Original Parts Expedite character portraits.</p><div class="avatar-grid">${AVATARS.map(([name,src])=>`<button class="avatar-choice ${state.avatar===src?'selected':''}" data-avatar="${src}" title="${name}"><img src="${src}" alt="${name}"></button>`).join('')}</div><div class="form-footer" style="margin-top:18px"><span class="muted" style="font-size:9px">${contributions.length} contribution activity items in this preview</span><button class="btn" data-route="submit">Submit a guide →</button></div></section></div><div class="section-head"><div><h2>My submissions & edit suggestions</h2><p>Preview statuses for your own contributions.</p></div></div>${contributionMarkup}`;
+  return `${titleBlock('YOUR PROFILE','Your Parts Expedite <span class="accent">identity.</span>','Profile, avatar and personal preview settings.')}${banner()}<div class="profile-layout"><section class="profile-card surface"><img class="profile-portrait" src="${avatar}" alt="Selected superhero avatar"><h2>${escapeHTML(state.name)}</h2><p>${escapeHTML(roleLabel())}</p><span class="pill amber">LOCAL PREVIEW PROFILE</span><div style="margin-top:17px;display:flex;gap:7px;justify-content:center;flex-wrap:wrap"><button class="btn secondary" data-action="change-name">Edit display name</button><button class="btn secondary" data-action="choose-role">Preview role</button></div><div class="tip-box" style="margin-top:17px;text-align:left"><strong>ACCOUNT / SECURITY</strong><p>Login, account approval, password reset and secure sessions are available when the Cloudflare backend is enabled.</p><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px"><button class="btn ghost small" data-route="login">Sign in UI</button><button class="btn ghost small" data-route="signup">Sign up UI</button><button class="btn ghost small" data-route="forgot-password">Recovery UI</button></div></div></section><section class="avatar-picker surface"><h2 class="form-section-title">Choose your hero avatar</h2><p class="muted" style="font-size:10px;margin-top:-7px">Original Parts Expedite character portraits.</p><div class="avatar-grid">${AVATARS.map(([name,src])=>`<button class="avatar-choice ${state.avatar===src?'selected':''}" data-avatar="${src}" title="${name}"><img src="${src}" alt="${name}"></button>`).join('')}</div><div class="form-footer" style="margin-top:18px"><span class="muted" style="font-size:9px">${contributions.length} contribution activity items in this preview</span><button class="btn" data-route="submit">Submit a guide →</button></div></section></div><div class="section-head"><div><h2>My submissions & edit suggestions</h2><p>Preview statuses for your own contributions.</p></div></div>${contributionMarkup}`;
 }
+
 function renderAuth(route){
-  const config={login:{kicker:'WELCOME BACK',title:'Sign in to your <span class="accent">workspace.</span>',intro:'The sign-in experience for approved Parts Expedite colleagues.',heading:'Account sign-in',fields:`<div class="field full"><label>Email address</label><input type="email" required placeholder="name@company.com" autocomplete="username"></div><div class="field full"><label>Password</label><input type="password" required placeholder="Enter your password" autocomplete="current-password"></div>`,button:'Sign in'},signup:{kicker:'JOIN THE TEAM',title:'Get access to <span class="accent">the knowledge.</span>',intro:'Request an account. New registrations will require administrator approval.',heading:'Create your account',fields:`<div class="field full"><label>Full name</label><input required minlength="2" placeholder="Your name" autocomplete="name"></div><div class="field full"><label>Work email</label><input type="email" required placeholder="name@company.com" autocomplete="email"></div><div class="field full"><label>Create password</label><input type="password" required minlength="10" placeholder="At least 10 characters" autocomplete="new-password"><span class="hint">The production service will enforce password and session security server-side.</span></div>`,button:'Request access'},'forgot-password':{kicker:'ACCOUNT RECOVERY',title:'Get back into <span class="accent">your account.</span>',intro:'Request help with a forgotten password. The finished system will route this securely to an administrator.',heading:'Password recovery request',fields:`<div class="field full"><label>Work email</label><input type="email" required placeholder="name@company.com" autocomplete="email"></div><div class="field full"><label>Additional context <span>· optional</span></label><textarea placeholder="Add any helpful details"></textarea></div>`,button:'Send recovery request'},'change-password':{kicker:'ACCOUNT SECURITY',title:'Update your <span class="accent">password.</span>',intro:'The password-change screen will be connected to secure authenticated sessions in the backend phase.',heading:'Change password',fields:`<div class="field full"><label>Current password</label><input type="password" required autocomplete="current-password"></div><div class="field full"><label>New password</label><input type="password" required minlength="10" autocomplete="new-password"></div><div class="field full"><label>Confirm new password</label><input type="password" required minlength="10" autocomplete="new-password"></div>`,button:'Update password'}};
+  const live=state.backendActive&&state.backendConfigured;
+  const unavailable=state.backendActive&&!state.backendConfigured;
+  const config={
+    login:{kicker:'WELCOME BACK',title:'Sign in to your <span class="accent">workspace.</span>',intro:'Sign in with your approved Parts Expedite account.',heading:'Account sign-in',fields:`<div class="field full"><label for="authEmail">Email address</label><input id="authEmail" name="email" type="email" required placeholder="name@company.com" autocomplete="username"></div><div class="field full"><label for="authPassword">Password</label><input id="authPassword" name="password" type="password" required placeholder="Enter your password" autocomplete="current-password"></div>`,button:'Sign in'},
+    signup:{kicker:'JOIN THE TEAM',title:'Get access to <span class="accent">the knowledge.</span>',intro:'Request an account. New registrations require administrator approval.',heading:'Create your account',fields:`<div class="field full"><label>Full name</label><input name="displayName" required minlength="2" maxlength="80" placeholder="Your name" autocomplete="name"></div><div class="field full"><label>Work email</label><input name="email" type="email" required placeholder="name@company.com" autocomplete="email"></div><div class="field full"><label>Create password</label><input name="password" type="password" required minlength="12" maxlength="128" placeholder="At least 12 characters" autocomplete="new-password"></div><div class="field full"><label>Confirm password</label><input name="confirmPassword" type="password" required minlength="12" maxlength="128" placeholder="Repeat your password" autocomplete="new-password"><span class="hint">Use a unique password with at least 12 characters.</span></div>`,button:'Request access'},
+    'forgot-password':{kicker:'ACCOUNT RECOVERY',title:'Get back into <span class="accent">your account.</span>',intro:'Request a secure temporary password. An administrator will be notified.',heading:'Password recovery request',fields:`<div class="field full"><label>Work email</label><input name="email" type="email" required placeholder="name@company.com" autocomplete="email"></div>`,button:'Send recovery request'},
+    'change-password':{kicker:'ACCOUNT SECURITY',title:'Update your <span class="accent">password.</span>',intro:state.currentUser?.mustChangePassword?'Your temporary password must be replaced before you can continue.':'Choose a new password for your account.',heading:'Change password',fields:`${state.currentUser?.mustChangePassword?'':'<div class="field full"><label>Current password</label><input name="currentPassword" type="password" required autocomplete="current-password"></div>'}<div class="field full"><label>New password</label><input name="password" type="password" required minlength="12" maxlength="128" autocomplete="new-password"></div><div class="field full"><label>Confirm new password</label><input name="confirmPassword" type="password" required minlength="12" maxlength="128" autocomplete="new-password"></div>`,button:'Update password'}
+  };
   const c=config[route];
-  return `${titleBlock(c.kicker,c.title,c.intro)}${banner()}<div class="form-layout" style="max-width:950px"><form class="form-card surface" data-auth-form="${route}"><h2 class="form-section-title">${c.heading}</h2><div class="form-grid">${c.fields}</div><div class="form-footer"><span class="muted" style="font-size:9px">Preview screen · backend not connected</span><button class="btn" type="submit">${c.button} →</button></div></form><aside class="form-aside surface"><h3>Parts Expedite access</h3><p>Access is designed around clear account roles and controlled publishing rights.</p><div class="guideline"><span>01</span><div><b>Member</b><br>Submit articles and suggest edits for administrator review.</div></div><div class="guideline"><span>02</span><div><b>Authorized Editor</b><br>Publish new or updated articles without review.</div></div><div class="guideline"><span>03</span><div><b>Administrator</b><br>Approve accounts, manage roles and oversee content.</div></div><div class="tip-box"><strong>PRIVACY BY DESIGN</strong><p>The production backend will use secure sessions, password hashing and server-side role enforcement. This front end does not collect or store credentials.</p></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:13px">${route!=='login'?'<button class="btn secondary small" data-route="login">Sign in</button>':''}${route!=='signup'?'<button class="btn secondary small" data-route="signup">Request access</button>':''}${route!=='forgot-password'?'<button class="btn ghost small" data-route="forgot-password">Forgot password</button>':''}</div></aside></div>`;
+  const status=unavailable?'<div class="preview-banner"><span class="notice-icon">!</span><div><strong>Live accounts are not activated yet</strong>The Cloudflare database and authentication setting must be configured before accounts can be used.</div></div>':(live?'':'<div class="preview-banner"><span class="notice-icon">ⓘ</span><div><strong>Preview environment</strong>Live sign-in is only available after the Parts Expedite Cloudflare Worker is deployed on this same site origin.</div></div>');
+  return `${titleBlock(c.kicker,c.title,c.intro)}${status}${banner()}<div class="form-layout" style="max-width:950px"><form class="form-card surface" data-auth-form="${route}"><h2 class="form-section-title">${c.heading}</h2><div class="form-grid">${c.fields}</div><div class="form-footer"><span class="muted" style="font-size:9px">${live?'Secure shared account':'Live account connection required'}</span><button class="btn" type="submit" ${!live?'disabled':''}>${c.button} →</button></div></form><aside class="form-aside surface"><h3>Parts Expedite access</h3><p>Access is controlled by the shared account system.</p><div class="guideline"><span>01</span><div><b>Member</b><br>Submit articles and suggest edits for administrator review.</div></div><div class="guideline"><span>02</span><div><b>Authorized Editor</b><br>Publish new or updated articles without review.</div></div><div class="guideline"><span>03</span><div><b>Administrator</b><br>Approve accounts, manage roles and oversee content.</div></div><div class="tip-box"><strong>PRIVACY BY DESIGN</strong><p>Passwords are hashed server-side. Sign-in sessions use secure, HttpOnly cookies. Never share a password with an administrator.</p></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:13px">${route!=='login'?'<button class="btn secondary small" data-route="login">Sign in</button>':''}${route!=='signup'?'<button class="btn secondary small" data-route="signup">Request access</button>':''}${route!=='forgot-password'?'<button class="btn ghost small" data-route="forgot-password">Forgot password</button>':''}</div></aside></div>`;
 }
+
 function renderLeaderboard(){const people=[['Amber Sentinel','avatars/amber-sentinel.svg',1240],['Turbo Fox','avatars/turbo-fox.svg',1110],['Torque Titan','avatars/torque-titan.svg',980],['Gear Guardian','avatars/gear-guardian.svg',850],['Spark Scout','avatars/spark-scout.svg',740]];return `${titleBlock('TEAM RECOGNITION','Knowledge in <span class="accent">motion.</span>','A placeholder leaderboard layout for the future game experiences.')}<div class="leaderboard surface" style="margin-top:22px">${people.map(([name,src,points],i)=>`<div class="leader-row"><span class="leader-rank">${String(i+1).padStart(2,'0')}</span><img src="${src}" alt=""><div><strong>${name}</strong><small>${i===0?'Parts Expedite Champion':'Knowledge Garage contender'}</small></div><span class="leader-points">${points.toLocaleString()} XP</span></div>`).join('')}</div><p class="muted" style="font-size:9px">Illustrative names and scores only. Real scoring and rankings will be connected when the four games are built.</p>`;}
 function renderAdmin(){const pending=state.submissions.filter(s=>s.status==='pending'),published=state.articles.length;let panel='';if(state.adminTab==='overview'){panel=`<div class="admin-metrics"><div class="metric"><strong>${pending.length}</strong><small>PENDING SUBMISSIONS</small></div><div class="metric"><strong>${state.revisions.filter(x=>x.status==='pending').length}</strong><small>EDIT SUGGESTIONS</small></div><div class="metric"><strong>${published}</strong><small>PUBLISHED GUIDES</small></div><div class="metric"><strong>${state.recycle.length}</strong><small>RECYCLE BIN</small></div></div><div class="side-panel surface"><h3>Workspace controls</h3><p class="muted" style="font-size:10px">The finished admin centre will manage account approvals, permissions, content review, revision history and recovery. Some administration controls are still being connected to the shared API.</p><div class="quick-grid" style="margin-top:12px"><button class="quick-card" data-admin-tab="submissions"><span class="quick-icon">▤</span><h3>Review submissions</h3><p>${pending.length} waiting for review</p></button><button class="quick-card" data-admin-tab="published"><span class="quick-icon">✓</span><h3>Published content</h3><p>Review the library contributions</p></button><button class="quick-card" data-admin-tab="users"><span class="quick-icon">♙</span><h3>Users & roles</h3><p>Role management preview</p></button></div></div>`;}else if(state.adminTab==='submissions'){panel=renderAdminList(pending,'submissions');}else if(state.adminTab==='published'){panel=renderAdminList(state.articles,'published');}else if(state.adminTab==='revisions'){panel=`${renderAdminList(state.revisions,'revisions')}<div class="section-head"><div><h2>Decision history</h2><p>Approved and rejected edit suggestions retained in this browser preview.</p></div></div>${renderAdminList(state.revisionHistory,'history')}`;}else if(state.adminTab==='recycle'){panel=renderAdminList(state.recycle,'recycle');}else{panel=`<div class="surface" style="padding:18px"><h3 class="form-section-title">Account and access preview</h3><p class="muted" style="font-size:10px">The production backend will provide registration approvals, account suspension/reactivation, administrator promotion and Authorized Editor grants. The rows below are mock records to show the planned controls; no real user accounts are present.</p><div class="admin-list" style="margin-top:12px"><div class="admin-item surface"><div><span class="pill amber">PENDING REGISTRATION</span><h3>Sample colleague</h3><p>sample.member@parts-expedite.example · Member request</p></div><div class="admin-actions"><button class="btn secondary small" disabled>Approve</button><button class="btn ghost small" disabled>Reject</button></div></div><div class="admin-item surface"><div><span class="pill green">ACTIVE MEMBER</span><h3>Sample editor</h3><p>sample.editor@parts-expedite.example · Member</p></div><div class="admin-actions"><button class="btn secondary small" disabled>Grant editor</button><button class="btn ghost small" disabled>Suspend</button></div></div><div class="admin-item surface"><div><span class="pill green">AUTHORIZED EDITOR</span><h3>Sample authorized editor</h3><p>sample.authorized@parts-expedite.example · Authorized Editor</p></div><div class="admin-actions"><button class="btn secondary small" disabled>Revoke editor</button><button class="btn ghost small" disabled>Suspend</button></div></div></div><div class="admin-item" style="margin-top:12px"><div><h3>${escapeHTML(state.name)} · current preview identity</h3><p>${escapeHTML(roleLabel())}</p></div><button class="btn secondary small" data-action="choose-role">Change demo role</button></div></div>`;}return `${titleBlock('ADMINISTRATION','Manage the <span class="accent">knowledge hub.</span>','A front-end preview of the built-in administration workspace.')}<div class="preview-banner" style="margin-top:18px"><span class="notice-icon">⚙</span><div><strong>Admin preview only</strong>These controls are not connected to a database, user authentication or shared publishing workflow yet.</div></div><div class="admin-tabs">${[['overview','Overview'],['submissions','Submissions'],['revisions','Edit suggestions'],['published','Published'],['recycle','Recycle bin'],['users','Users & roles']].map(([id,label])=>`<button class="admin-tab ${state.adminTab===id?'active':''}" data-admin-tab="${id}">${label}${id==='submissions'&&pending.length?` · ${pending.length}`:''}</button>`).join('')}</div>${panel}`;}
 function renderAdminList(items,type){if(!items.length)return `<div class="empty-state"><div class="empty-icon">✓</div><h3>Nothing to review here</h3><p>This section is empty in the current preview workspace.</p></div>`;return `<div class="admin-list">${items.map((item,index)=>{const article=item.article||item;const id=item.id||article.id;const isRequest=['submissions','revisions'].includes(type);const status=item.status||(type==='recycle'?'recycled':'published');return `<article class="admin-item surface"><div><span class="pill ${status==='pending'?'amber':status==='rejected'?'red':'green'}">${escapeHTML(status.toUpperCase())}</span><h3>${escapeHTML(article.title||'Untitled content')}</h3><p>${escapeHTML(getCategory(article.category))} · ${escapeHTML(item.author||item.submitter||'Preview user')} · ${escapeHTML(id||'Draft')}</p>${item.note?`<p style="margin-top:5px">${escapeHTML(item.note)}</p>`:''}${item.original?`<div class="revision-box"><div><strong>BEFORE</strong>${escapeHTML(item.original.title)}</div><div><strong>PROPOSED UPDATE</strong>${escapeHTML(article.title)}</div></div>`:''}</div><div class="admin-actions">${isRequest&&status==='pending'?`<button class="btn secondary small" data-review="reject" data-index="${index}" data-type="${type}">Reject</button><button class="btn small" data-review="approve" data-index="${index}" data-type="${type}">Approve</button>`:type==='published'?`<button class="btn secondary small" data-edit-article="${escapeHTML(id)}">Edit</button><button class="btn danger small" data-recycle="${escapeHTML(id)}">Recycle</button>`:type==='recycle'?`<button class="btn secondary small" data-restore="${escapeHTML(id)}">Restore</button>`:''}</div></article>`;}).join('')}</div>`;}
