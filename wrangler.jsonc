@@ -14,14 +14,8 @@
     {
       "binding": "DB",
       "database_name": "parts-expedite-db",
-      "database_id": "REPLACE_WITH_D1_DATABASE_ID",
+      "database_id": "614c9444-160b-4db1-a061-5661185e7cef",
       "migrations_dir": "backend/migrations"
-    }
-  ],
-  "r2_buckets": [
-    {
-      "binding": "MEDIA",
-      "bucket_name": "parts-expedite-media"
     }
   ],
   "vars": {
