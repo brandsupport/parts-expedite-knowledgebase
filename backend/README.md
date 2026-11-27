@@ -24,7 +24,13 @@ Copy the D1 `database_id` returned by Cloudflare into `wrangler.jsonc`, replacin
 
 ## 2. Prepare GitHub Actions access
 
-Create a Cloudflare API token scoped to the account that owns the Worker, with permission to deploy Workers and manage the D1 database and R2 objects. In the GitHub repository open **Settings → Secrets and variables → Actions** and add these repository secrets:
+Create a custom Cloudflare API token scoped to the single account that owns the Worker. For this workflow, grant these account-level permissions:
+
+- **Workers Scripts Write** — deploy the Worker and its static assets.
+- **D1 Edit** — apply the database migrations.
+- **Workers R2 Storage Write** — upload the private AVIF source screenshots.
+
+The current Cloudflare GitHub Actions guidance requires both an API token and the account ID for non-interactive deployment. In the GitHub repository open **Settings → Secrets and variables → Actions** and add these repository secrets:
 
 - `CLOUDFLARE_API_TOKEN`
 - `CLOUDFLARE_ACCOUNT_ID`
