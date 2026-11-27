@@ -8,12 +8,12 @@
   },
   "scripts": {
     "build": "node scripts/build-static.mjs",
-    "dev": "npm run build && wrangler dev --config wrangler.jsonc",
-    "deploy": "wrangler deploy --config wrangler.jsonc",
+    "dev": "npm run build && wrangler pages dev dist",
+    "deploy": "npm run build && wrangler pages deploy dist --project-name=parts-expedite-kb",
     "db:migrate:local": "wrangler d1 migrations apply parts-expedite-db --local",
     "db:migrate:remote": "wrangler d1 migrations apply parts-expedite-db --remote",
     "db:status:remote": "wrangler d1 migrations list parts-expedite-db --remote",
-    "check": "node --check js/app.js && node --check backend/worker.js && node --check scripts/build-static.mjs"
+    "check": "node --check js/app.js && node --check backend/worker.js && node --check functions/api/[[path]].js && node --check scripts/build-static.mjs"
   },
   "devDependencies": {
     "wrangler": "latest"
