@@ -1,106 +1,87 @@
-# Parts Expedite live workspace — Cloudflare setup
+# Parts Expedite live workspace — Brand Support-aligned Cloudflare Pages setup
 
-The production app is a **single-origin Cloudflare Worker**. The Worker serves the same static frontend and the `/api/*` endpoints, so its secure HttpOnly session cookie stays first-party. D1 stores accounts, roles, articles, submissions, revisions, favorites and notifications. R2 stores private screenshots and future article attachments.
+The production platform follows the **same deployment architecture as the Brand Support Knowledge Base**:
 
-The GitHub Pages site remains a read-only frontend preview. Do not use the Pages URL for live sign-in. Live accounts work on the Worker URL after deployment.
+- Cloudflare Pages serves the built website.
+- Cloudflare Pages Functions handle the same-origin `/api/*` routes.
+- Cloudflare D1 stores accounts, sessions, approvals, submissions, revisions, favorites and notifications.
+- Article screenshots stay in the Git repository and are embedded into the static build as Base64 data URIs.
 
-## 1. Create the Cloudflare resources
+**There is no R2 bucket, no separate production Worker, no MEDIA binding, and no image-upload service dependency.**
 
-Sign in to the Cloudflare account that will own Parts Expedite and create:
+The API route adapter in `functions/api/[[path]].js` forwards the same-origin API requests to the existing Parts API handler. The browser uses the Pages hostname for both the site and API, preserving secure HttpOnly session cookies.
 
-- D1 database: `parts-expedite-db`
-- R2 bucket: `parts-expedite-media`
+## 1. Connect the repository to Cloudflare Pages
 
-Or use Wrangler from the repository root:
+In Cloudflare:
 
-```bash
-npm install
-npx wrangler login
-npx wrangler d1 create parts-expedite-db
-npx wrangler r2 bucket create parts-expedite-media
+1. Open **Workers & Pages → Create application → Pages → Connect to Git**.
+2. Select the GitHub repository `brandsupport/parts-expedite-knowledgebase`.
+3. Use project name `parts-expedite-kb` and production branch `main`.
+4. Set the build command to `npm run build`.
+5. Set the build output directory to `dist`.
+6. Set the root directory to `/` and start the first deployment.
+
+Cloudflare Pages automatically discovers the repository's `functions/` directory. The root `wrangler.jsonc` is the source of truth for the Pages project and contains the D1 binding.
+
+## 2. Apply the D1 migrations
+
+The existing D1 database is:
+
+- Name: `parts-expedite-db`
+- Binding: `DB`
+- Database ID: `614c9444-160b-4db1-a061-5661185e7cef`
+
+The manual GitHub Actions workflow **Apply Parts Expedite D1 migrations** applies the ordered SQL files from `backend/migrations/` to that database. It requires repository Actions secrets:
+
+- `CLOUDFLARE_API_TOKEN` — account-scoped token with **D1 Edit** permission.
+- `CLOUDFLARE_ACCOUNT_ID` — Cloudflare account ID.
+
+Do not add Workers Scripts Write or R2 permissions. Never commit either secret or paste the API token into chat.
+
+Run the workflow after the Pages project has been created and its first build is complete. It applies the 30 imported articles, category records and account/publishing schema. The 58 original AVIF files are handled by the static build; the database only keeps their metadata references.
+
+## 3. Enable account registration
+
+The initial Pages configuration deliberately sets `AUTH_ENABLED=false`. After the migrations succeed:
+
+1. Change `AUTH_ENABLED` to `true` in `wrangler.jsonc` and commit the change.
+2. Wait for Cloudflare Pages to deploy the new commit.
+3. Open the live Pages URL and use **Request access** to register your own work account.
+4. In the Cloudflare D1 Console, promote only that first account to Administrator using its exact email:
+
+```sql
+UPDATE users
+SET role = 'admin',
+    status = 'active',
+    approved_at = CURRENT_TIMESTAMP,
+    updated_at = CURRENT_TIMESTAMP
+WHERE email = 'YOUR_WORK_EMAIL' COLLATE NOCASE;
 ```
 
-Copy the D1 `database_id` returned by Cloudflare into `wrangler.jsonc`, replacing `REPLACE_WITH_D1_DATABASE_ID`. Keep the R2 bucket private; do not enable public bucket access.
+5. Confirm the SQL reports one changed row, then sign in.
 
-## 2. Prepare GitHub Actions access
+New registrations remain pending Member accounts. Administrators approve them and may grant or revoke Authorized Editor access. Authorized Editors and Administrators can publish directly; Member submissions and edits enter the review queue.
 
-Create a custom Cloudflare API token scoped to the single account that owns the Worker. For this workflow, grant these account-level permissions:
+## 4. Screenshot and article publishing model
 
-- **Workers Scripts Write** — deploy the Worker and its static assets.
-- **D1 Edit** — apply the database migrations.
-- **Workers R2 Storage Write** — upload the private AVIF source screenshots.
+The existing 58 AVIF screenshots and 60 article references across 19 guides stay in `data/article_images/` and `data/article-images.js`. `scripts/build-static.mjs` embeds the source files into `data/article-images.js` in the generated site. The original archive and source images are not duplicated into the published `dist` output.
 
-The current Cloudflare GitHub Actions guidance requires both an API token and the account ID for non-interactive deployment. In the GitHub repository open **Settings → Secrets and variables → Actions** and add these repository secrets:
-
-- `CLOUDFLARE_API_TOKEN`
-- `CLOUDFLARE_ACCOUNT_ID`
-
-Never commit either value to the repository or paste a token into a chat.
-
-## 3. Deploy the database and Worker with sign-in still disabled
-
-Open **Actions → Deploy Parts Expedite live Cloudflare Worker → Run workflow**.
-
-For the first run, keep:
-- **Apply pending D1 migrations:** enabled
-- **Enable account authentication:** disabled
-
-The workflow validates the source, extracts the 58 AVIF source screenshots, applies the ordered migrations (including the 30 imported articles and 60 screenshot references), uploads the private R2 objects and deploys the app/API together.
-
-The first deployment uses `AUTH_ENABLED=false`. The registration and login endpoints remain disabled until the first administrator is created.
-
-## 4. Bootstrap the first administrator
-
-After the first Worker deployment, set a long, random one-time Worker secret named `BOOTSTRAP_ADMIN_SECRET` in **Cloudflare Dashboard → Workers & Pages → parts-expedite-api → Settings → Variables and Secrets** (mark it as a secret).
-
-Use the Worker `workers.dev` address shown by Cloudflare after deployment. Send a one-time bootstrap request from your own terminal, substituting your own email and name. The password is created locally by you and must not be added to GitHub or shared in chat:
-
-```bash
-curl -X POST "https://YOUR-WORKER.workers.dev/api/admin/bootstrap" \
-  -H "Content-Type: application/json" \
-  -H "X-Bootstrap-Key: YOUR_ONE_TIME_SECRET" \
-  --data '{"email":"YOUR_WORK_EMAIL","displayName":"Your Name","password":"A_NEW_PASSWORD_OF_AT_LEAST_12_CHARACTERS"}'
-```
-
-A successful response confirms that the initial Administrator account was created. The bootstrap endpoint refuses to create another administrator once one already exists.
-
-Immediately delete `BOOTSTRAP_ADMIN_SECRET` from Worker secrets after the bootstrap succeeds.
-
-## 5. Turn on real accounts
-
-Run the Cloudflare deployment workflow again with:
-- **Apply pending D1 migrations:** disabled
-- **Enable account authentication:** enabled
-
-That deploys `AUTH_ENABLED=true`. Only after this step do registration, login, password recovery and account management become available.
-
-The initial Administrator can approve pending Member registrations and grant/revoke the separate Authorized Editor capability. Members submit articles and edit suggestions for review; Authorized Editors and Administrators can publish directly. Temporary passwords require a forced password change at the next sign-in.
-
-## Source screenshots and private media
-
-The source archive is `data/parts-expedite-article-images.zip`. It contains 58 unique AVIF files used by 60 references across 19 articles.
-
-The Cloudflare deployment workflow extracts the archive and runs `scripts/upload-source-images.sh` to place the AVIF objects in the private R2 bucket under `source-articles/`. D1's `0003_seed_source_images.sql` migration links those objects to the imported articles. The Worker serves them through `/api/media/:imageId` after checking visibility; it does not expose the bucket.
-
-New article screenshots are validated and stored privately. Screenshots added by a Member stay attached to their pending submission until an administrator approves it, at which point the Worker moves the media references into the published article.
+New screenshot uploads are intentionally disabled in the first live release until their repository-backed publishing flow is complete. Article text submissions, review, approval, direct Authorized Editor publishing and revision history use D1.
 
 ## Local checks
 
 ```bash
+npm install
 npm run check
 npm run build
 npm run db:status:remote
 ```
 
-To inspect or apply migrations manually:
+For local Pages Functions development, use `npm run dev`. D1 migrations can be applied from the repository root with `npm run db:migrate:remote` once Wrangler is authenticated.
 
-```bash
-npm run db:migrate:remote
-```
+## Operational notes
 
-## Important operational notes
-
-- Password recovery creates an in-app request and notifies administrators. This setup does not yet send password-reset emails; an email provider and delivery configuration would be a separate addition.
-- Keep `AUTH_ENABLED=false` until the first Administrator has been bootstrapped and the one-time bootstrap secret has been removed.
-- The public GitHub Pages deployment is only a preview. Use the Cloudflare Worker URL for live account tests.
-- Take D1 backups and review account/role access periodically.
+- Password recovery is administrator-mediated; no email delivery provider is configured yet.
+- GitHub Pages remains a read-only preview. Use the Cloudflare Pages hostname for live sign-in.
+- Keep D1 production data backed up and periodically review Administrator and Authorized Editor access.
