@@ -25,6 +25,7 @@
     }
   ],
   "vars": {
-    "APP_ENV": "production"
+    "APP_ENV": "production",
+    "AUTH_ENABLED": "false"
   }
 }
