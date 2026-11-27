@@ -300,7 +300,8 @@ function renderArticle(id){
   const tags=(article.tags||[]).map(tag=>'<button type="button" class="pill" data-tag="'+escapeHTML(tag)+'"># '+escapeHTML(tag)+'</button>').join('');
   const manifestImages=window.PE_ARTICLE_IMAGE_MANIFEST?.[article.id]||[];
   const backendImages=Array.isArray(article.images)?article.images:[];
-  const imageRows=[...manifestImages,...backendImages].filter((img,index,all)=>
+  const selectedImages=state.backendActive&&backendImages.length?backendImages:manifestImages;
+  const imageRows=selectedImages.filter((img,index,all)=>
     img&&img.src&&all.findIndex(other=>other&&other.src&&
       ((img.id&&other.id)?img.id===other.id:img.src===other.src))===index
   );
