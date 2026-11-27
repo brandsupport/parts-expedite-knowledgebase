@@ -28,12 +28,22 @@ jobs:
           test -s data/articles-01.js
           test -s data/articles-02.js
           test -s data/articles-03.js
+          test -s data/article-images.js
+          test -s backend/worker.js
+          test -s backend/migrations/0001_initial.sql
+          test -s backend/migrations/0002_seed_initial_library.sql
+          test -s backend/migrations/0003_seed_source_images.sql
+          test -s wrangler.jsonc
           test -s assets/favicon.svg
           test -s assets/parts-doodle-background.svg
           node --check js/app.js
           node --check data/articles-01.js
           node --check data/articles-02.js
           node --check data/articles-03.js
+          node --check data/article-images.js
+          node --check backend/worker.js
+          node --check scripts/build-static.mjs
+          bash -n scripts/upload-source-images.sh
           node - <<'JS'
           global.window = {};
           require('./data/articles-01.js');
@@ -48,7 +58,7 @@ jobs:
           console.log('Validated 30 unique imported articles, categories, tags and content.');
           JS
           python3 - <<'PY'
-          import json
+          import json, sqlite3
           from pathlib import Path
           manifest = json.loads(Path("site.webmanifest").read_text())
           assert manifest["name"] == "Parts Expedite Knowledge Base"
@@ -57,16 +67,23 @@ jobs:
               assert path.is_file(), f"Missing manifest icon: {path}"
           for avatar in Path("avatars").glob("*.svg"):
               assert avatar.stat().st_size > 100
-          print("Frontend files, avatars and browser icons validated.")
+          db = sqlite3.connect(":memory:")
+          db.execute("PRAGMA foreign_keys=ON")
+          for migration in sorted(Path("backend/migrations").glob("*.sql")):
+              db.executescript(migration.read_text(encoding="utf-8"))
+          assert db.execute("SELECT COUNT(*) FROM categories").fetchone()[0] == 8
+          assert db.execute("SELECT COUNT(*) FROM articles").fetchone()[0] == 30
+          assert db.execute("SELECT COUNT(*) FROM article_images").fetchone()[0] == 60
+          assert db.execute("SELECT COUNT(DISTINCT id) FROM articles").fetchone()[0] == 30
+          assert db.execute("PRAGMA foreign_key_check").fetchall() == []
+          print("Validated frontend assets, 8 categories, 30 articles, 60 image references and D1 foreign keys.")
           PY
 
       - name: Assemble Pages site
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p dist
-          cp index.html site.webmanifest dist/
-          cp -R css js assets avatars data dist/
+          node scripts/build-static.mjs
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
