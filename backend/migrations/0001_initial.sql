@@ -80,7 +80,7 @@ CREATE INDEX IF NOT EXISTS idx_article_tags_tag ON article_tags(tag_id);
 CREATE TABLE IF NOT EXISTS article_images (
   id TEXT PRIMARY KEY,
   article_id TEXT NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
-  storage_key TEXT NOT NULL UNIQUE,
+  storage_key TEXT NOT NULL,
   content_type TEXT NOT NULL,
   byte_size INTEGER NOT NULL DEFAULT 0,
   alt_text TEXT NOT NULL,
