@@ -18,6 +18,6 @@
   ],
   "vars": {
     "APP_ENV": "production",
-    "AUTH_ENABLED": "false"
+    "AUTH_ENABLED": "true"
   }
 }
