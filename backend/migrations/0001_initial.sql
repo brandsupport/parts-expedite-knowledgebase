@@ -148,3 +148,11 @@ CREATE TABLE IF NOT EXISTS auth_rate_limits (
   attempts INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_auth_rate_limits_window ON auth_rate_limits(window_started_at);
+
+CREATE TABLE IF NOT EXISTS user_favorites (
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  article_id TEXT NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id, article_id)
+);
+CREATE INDEX IF NOT EXISTS idx_user_favorites_article ON user_favorites(article_id);
