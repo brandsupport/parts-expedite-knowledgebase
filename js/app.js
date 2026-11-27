@@ -42,7 +42,17 @@ function loadArticleLibrary(){
   const merged=new Map(SEED_ARTICLES.map(article=>[String(article.id),structuredClone(article)]));
   stored.filter(article=>!article.sample).forEach(article=>{
     const id=String(article.id);
-    merged.set(id,{...(merged.get(id)||{}),...article});
+    const base=merged.get(id)||{};
+    const combined={...base,...article};
+    // Older browser-saved preview records may contain empty imported fields.
+    // Do not let those stale values blank the current source article.
+    if(base.imported||base.sourceDocument||base.sourcePages){
+      if(!String(article.body||'').trim())combined.body=base.body||'';
+      if(!String(article.title||'').trim())combined.title=base.title||'';
+      if(!String(article.summary||'').trim())combined.summary=base.summary||'';
+      if(!Array.isArray(article.tags)||!article.tags.length)combined.tags=base.tags||[];
+    }
+    merged.set(id,combined);
   });
   return [...merged.values()];
 }
