@@ -87,7 +87,6 @@ async function initializeBackend(){
     state.backendActive=true;
     await refreshBackendData();
     renderRoute();
-initializeBackend();
   }catch(error){
     state.backendActive=false;
   }
@@ -268,3 +267,4 @@ view.addEventListener('input',e=>{if(e.target.id==='librarySearch'){state.search
 view.addEventListener('change',e=>{if(e.target.id==='sortArticles'){state.articles.sort((a,b)=>e.target.value==='az'?a.title.localeCompare(b.title):0);renderRoute();}});
 view.addEventListener('submit',e=>{if(e.target.id==='articleForm'){e.preventDefault();submitArticle(e.target);}if(e.target.matches('[data-auth-form]')){e.preventDefault();if(state.backendActive){submitAuthToBackend(e.target);}else{toast('Preview only: this form does not authenticate users.');e.target.reset();}}});
 renderRoute();
+initializeBackend();
