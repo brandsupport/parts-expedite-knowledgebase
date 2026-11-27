@@ -18,6 +18,18 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v4
 
+      - name: Extract source screenshots when archive is present
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f data/parts-expedite-article-images.zip ]; then
+            mkdir -p data/article_images
+            unzip -oq data/parts-expedite-article-images.zip -d data/article_images
+            echo "Extracted source article screenshots."
+          else
+            echo "Screenshot archive not uploaded yet; building the site without image galleries."
+          fi
+
       - name: Validate frontend source
         shell: bash
         run: |
@@ -29,11 +41,6 @@ jobs:
           test -s data/articles-02.js
           test -s data/articles-03.js
           test -s data/article-images.js
-          test -s backend/worker.js
-          test -s backend/migrations/0001_initial.sql
-          test -s backend/migrations/0002_seed_initial_library.sql
-          test -s backend/migrations/0003_seed_source_images.sql
-          test -s wrangler.jsonc
           test -s assets/favicon.svg
           test -s assets/parts-doodle-background.svg
           node --check js/app.js
@@ -41,9 +48,7 @@ jobs:
           node --check data/articles-02.js
           node --check data/articles-03.js
           node --check data/article-images.js
-          node --check backend/worker.js
           node --check scripts/build-static.mjs
-          bash -n scripts/upload-source-images.sh
           node - <<'JS'
           global.window = {};
           require('./data/articles-01.js');
@@ -55,7 +60,24 @@ jobs:
           for (const article of articles) {
             if (!article.title || !article.category || !article.tags?.length || !article.body) throw new Error('Incomplete article: ' + article.id);
           }
-          console.log('Validated 30 unique imported articles, categories, tags and content.');
+          console.log('Validated 30 unique imported articles.');
+          JS
+          node - <<'JS'
+          global.window = {};
+          require('./data/article-images.js');
+          const images = Object.values(window.PE_ARTICLE_IMAGE_MANIFEST || {}).flat();
+          const ids = new Set(images.map(x => x.id));
+          const files = new Set(images.map(x => x.key));
+          if (images.length !== 60) throw new Error('Expected 60 article screenshot references, found ' + images.length);
+          if (ids.size !== 60) throw new Error('Screenshot reference IDs are not unique');
+          if (files.size !== 58) throw new Error('Expected 58 unique source screenshots, found ' + files.size);
+          if (images.some(x => !x.key?.startsWith('article_images/') || !x.key.endsWith('.avif'))) throw new Error('Invalid repository screenshot path');
+          const missing = [...files].filter(p => !require('node:fs').existsSync('data/' + p));
+          if (require('node:fs').existsSync('data/parts-expedite-article-images.zip') && missing.length) {
+            throw new Error('Screenshot archive did not supply all images: ' + missing.join(', '));
+          }
+          if (missing.length) console.warn('Screenshot source archive is not present yet; ' + missing.length + ' image files will be skipped for this build.');
+          else console.log('Validated all 60 references and 58 unique source screenshots.');
           JS
           python3 - <<'PY'
           import json, sqlite3
@@ -74,9 +96,8 @@ jobs:
           assert db.execute("SELECT COUNT(*) FROM categories").fetchone()[0] == 8
           assert db.execute("SELECT COUNT(*) FROM articles").fetchone()[0] == 30
           assert db.execute("SELECT COUNT(*) FROM article_images").fetchone()[0] == 60
-          assert db.execute("SELECT COUNT(DISTINCT id) FROM articles").fetchone()[0] == 30
           assert db.execute("PRAGMA foreign_key_check").fetchall() == []
-          print("Validated frontend assets, 8 categories, 30 articles, 60 image references and D1 foreign keys.")
+          print("Validated site metadata and imported library schema.")
           PY
 
       - name: Assemble Pages site

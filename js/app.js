@@ -203,7 +203,7 @@ function renderArticle(id){
   const source=(article.sourceDocument||article.sourcePages||article.imported)?'<div class="source-note"><strong>Source reference</strong><span>'+escapeHTML(article.sourceDocument||'BlueLight Cases-combined.pdf')+' · PDF pages '+escapeHTML(article.sourcePages||'recorded in the source')+'</span><p>Imported from the team’s source document. Check that the process and contact details remain current before acting on this guidance.</p></div>':'';
   const tags=(article.tags||[]).map(tag=>'<button type="button" class="pill" data-tag="'+escapeHTML(tag)+'"># '+escapeHTML(tag)+'</button>').join('');
   const backendImages=Array.isArray(article.images)?article.images.filter(img=>img&&img.src):[];
-  const imageRows=backendImages.length?backendImages:(window.PE_ARTICLE_IMAGE_MANIFEST?.[article.id]||[]);
+  const imageRows=(backendImages.length?backendImages:(window.PE_ARTICLE_IMAGE_MANIFEST?.[article.id]||[])).filter(img=>img&&img.src);
   const gallery=imageRows.length?'<section class="article-images"><h3>Visual guide</h3><div class="article-image-grid">'+imageRows.map(img=>{
     const src=img.src||'';
     if(!src)return '';
