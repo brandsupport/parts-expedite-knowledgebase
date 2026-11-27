@@ -67,7 +67,7 @@ New registrations remain pending Member accounts. Administrators approve them an
 
 The existing 58 AVIF screenshots and 60 article references across 19 guides stay in `data/article_images/` and `data/article-images.js`. `scripts/build-static.mjs` embeds the source files into `data/article-images.js` in the generated site. The original archive and source images are not duplicated into the published `dist` output.
 
-New screenshot uploads are intentionally disabled in the first live release until their repository-backed publishing flow is complete. Article text submissions, review, approval, direct Authorized Editor publishing and revision history use D1.
+New screenshot uploads use the same no-bucket approach: the API validates JPEG, PNG, WebP and AVIF files, limits each file to 270 KB and stores the Base64 image data in D1. Member screenshots remain attached to pending submissions and move to the published article records only when an administrator approves the contribution.
 
 ## Local checks
 
