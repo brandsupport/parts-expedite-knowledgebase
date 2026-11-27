@@ -350,7 +350,7 @@ function renderAuth(route){
 
 function renderLeaderboard(){const people=[['Amber Sentinel','avatars/amber-sentinel.svg',1240],['Turbo Fox','avatars/turbo-fox.svg',1110],['Torque Titan','avatars/torque-titan.svg',980],['Gear Guardian','avatars/gear-guardian.svg',850],['Spark Scout','avatars/spark-scout.svg',740]];return `${titleBlock('TEAM RECOGNITION','Knowledge in <span class="accent">motion.</span>','A placeholder leaderboard layout for the future game experiences.')}<div class="leaderboard surface" style="margin-top:22px">${people.map(([name,src,points],i)=>`<div class="leader-row"><span class="leader-rank">${String(i+1).padStart(2,'0')}</span><img src="${src}" alt=""><div><strong>${name}</strong><small>${i===0?'Parts Expedite Champion':'Knowledge Garage contender'}</small></div><span class="leader-points">${points.toLocaleString()} XP</span></div>`).join('')}</div><p class="muted" style="font-size:9px">Illustrative names and scores only. Real scoring and rankings will be connected when the four games are built.</p>`;}
 function renderAdmin(){
-  if(!state.backendActive)return renderAdminPreview();
+  if(!state.backendActive)return titleBlock('ADMINISTRATION','Admin <span class="accent">workspace.</span>','Live account controls are available when the Cloudflare Worker is connected.')+'<div class="preview-banner" style="margin-top:18px"><span class="notice-icon">ⓘ</span><div><strong>Preview environment</strong>Connect the Parts Expedite app to its Cloudflare Worker to load real accounts and review queues.</div></div>';
   if(state.currentUser?.role!=='admin')return '<div class="empty-state"><h3>Administrator access only</h3><p>You do not have permission to view this workspace.</p></div>';
   const pending=state.adminSubmissions.length;
   const pendingUsers=state.adminUsers.filter(user=>user.status==='pending').length;
@@ -420,7 +420,6 @@ function renderArchivedArticles(){
   if(!items.length)return '<div class="empty-state"><h3>Archive is empty</h3><p>Archived articles can be restored from this section.</p></div>';
   return '<div class="admin-list">'+items.map(item=>'<article class="admin-item surface"><div><span class="pill red">ARCHIVED</span><h3>'+escapeHTML(item.title||'Article')+'</h3><p>'+escapeHTML(item.id)+' · '+escapeHTML(getCategory(item.category))+'</p></div><button class="btn secondary small" data-restore-article="'+escapeHTML(item.id)+'">Restore article</button></article>').join('')+'</div>';
 }
-function renderAdminPreview(){
 function renderAdminList(items,type){if(!items.length)return `<div class="empty-state"><div class="empty-icon">✓</div><h3>Nothing to review here</h3><p>This section is empty in the current preview workspace.</p></div>`;return `<div class="admin-list">${items.map((item,index)=>{const article=item.article||item;const id=item.id||article.id;const isRequest=['submissions','revisions'].includes(type);const status=item.status||(type==='recycle'?'recycled':'published');return `<article class="admin-item surface"><div><span class="pill ${status==='pending'?'amber':status==='rejected'?'red':'green'}">${escapeHTML(status.toUpperCase())}</span><h3>${escapeHTML(article.title||'Untitled content')}</h3><p>${escapeHTML(getCategory(article.category))} · ${escapeHTML(item.author||item.submitter||'Preview user')} · ${escapeHTML(id||'Draft')}</p>${item.note?`<p style="margin-top:5px">${escapeHTML(item.note)}</p>`:''}${item.original?`<div class="revision-box"><div><strong>BEFORE</strong>${escapeHTML(item.original.title)}</div><div><strong>PROPOSED UPDATE</strong>${escapeHTML(article.title)}</div></div>`:''}</div><div class="admin-actions">${isRequest&&status==='pending'?`<button class="btn secondary small" data-review="reject" data-index="${index}" data-type="${type}">Reject</button><button class="btn small" data-review="approve" data-index="${index}" data-type="${type}">Approve</button>`:type==='published'?`<button class="btn secondary small" data-edit-article="${escapeHTML(id)}">Edit</button><button class="btn danger small" data-recycle="${escapeHTML(id)}">Recycle</button>`:type==='recycle'?`<button class="btn secondary small" data-restore="${escapeHTML(id)}">Restore</button>`:''}</div></article>`;}).join('')}</div>`;}
 function renderRoute(){if(state.backendActive&&!state.currentUser&&['submit','profile','favorites','admin'].includes((location.hash.replace(/^#\/?/,'').split('/')[0]||'home'))){view.innerHTML='<div class="empty-state" style="margin-top:45px"><div class="empty-icon">⌑</div><h3>Sign in required</h3><p>Sign in to submit, save or manage Parts Expedite knowledge.</p><button class="btn" data-route="login">Sign in →</button></div>';document.getElementById('topName').textContent='Guest';document.getElementById('topRole').textContent='Not signed in';return;}const [page,arg]=location.hash.replace(/^#\/?/,'').split('/');const route=page||'home';document.querySelectorAll('[data-route]').forEach(el=>el.classList.toggle('active',el.dataset.route===route));const labels={home:'Overview',articles:'Knowledge library',article:'Article guide',submit:'Submit an article',games:'Knowledge games',favorites:'Saved articles',profile:'My profile',leaderboard:'Leaderboard',admin:'Admin workspace',login:'Sign in',signup:'Request access','forgot-password':'Password recovery','change-password':'Change password'};document.getElementById('crumbCurrent').textContent=labels[route]||'Overview';document.getElementById('articleCount').textContent=String(state.articles.length).padStart(2,'0');if(route==='home')view.innerHTML=renderHome();else if(route==='articles'){view.innerHTML=renderArticles();}else if(route==='article')view.innerHTML=renderArticle(arg);else if(route==='submit')view.innerHTML=renderSubmit(arg||null);else if(route==='games')view.innerHTML=renderGames();else if(route==='favorites')view.innerHTML=renderFavorites();else if(route==='profile')view.innerHTML=renderProfile();else if(route==='leaderboard')view.innerHTML=renderLeaderboard();else if(route==='admin'&&state.role==='admin')view.innerHTML=renderAdmin();else if(route==='admin')view.innerHTML=`<div class="empty-state" style="margin-top:50px"><div class="empty-icon">⌑</div><h3>Administrator access only</h3><p>Switch to the Administrator preview role to inspect the admin workspace. In production, this area will be protected by server-side permissions.</p><button class="btn secondary" data-action="choose-role">Change preview role</button></div>`;else if(['login','signup','forgot-password','change-password'].includes(route))view.innerHTML=renderAuth(route);else{location.hash='#/home';return;}const adminNav=document.querySelector('[data-route="admin"]');if(adminNav)adminNav.hidden=state.role!=='admin';const bodyField=document.getElementById('articleBody'),bodyCounter=document.getElementById('bodyCount');if(bodyField&&bodyCounter)bodyCounter.textContent=bodyField.value.length.toLocaleString()+' / 30,000';document.getElementById('topName').textContent=state.name;document.getElementById('topRole').textContent=roleLabel();document.getElementById('topAvatar').src=state.avatar;document.querySelectorAll('.nav-item').forEach(el=>el.classList.toggle('active',el.dataset.route===route));document.getElementById('sidebar').classList.remove('open');}
 function go(route){location.hash='#/'+route;}
@@ -445,7 +444,89 @@ function closeModal(){
   modal.classList.remove('image-viewer-modal');
   if(wasImageViewer)document.getElementById('modalContent').innerHTML='';
 }
-function notify(){document.getElementById('modalContent').innerHTML=`<div class="eyebrow">NOTIFICATIONS</div><h2 id="modalTitle">You're all caught up.</h2><p>Notifications for article reviews, account approvals and updates will appear here once the backend is connected.</p><div class="empty-state"><div class="empty-icon">♧</div><h3>No live notifications</h3><p>This is a front-end preview, so no shared account activity is being received.</p></div>`;showModal();}
+function notify(){
+  const isAdmin=state.currentUser?.role==='admin';
+  const items=isAdmin?(state.adminNotifications||[]):(state.notifications||[]);
+  const unread=items.filter(item=>!(item.readAt||item.read_at)).length;
+  const rows=items.length?items.map(item=>{
+    const read=!!(item.readAt||item.read_at);
+    return '<article class="admin-item surface"><div><span class="pill '+(read?'':'amber')+'">'+(read?'READ':'NEW')+'</span><h3>'+escapeHTML(item.title||'Notification')+'</h3><p>'+escapeHTML(item.message||'')+'</p><p class="muted">'+escapeHTML(shortDate(item.createdAt||item.created_at))+'</p></div>'+(isAdmin&&!read?'<button class="btn ghost small" data-admin-notification-read="'+escapeHTML(item.id)+'">Mark read</button>':'')+'</article>';
+  }).join(''):'<div class="empty-state"><div class="empty-icon">♧</div><h3>No notifications</h3><p>Account updates, article decisions and workspace alerts will appear here.</p></div>';
+  document.getElementById('modalContent').innerHTML='<div class="eyebrow">WORKSPACE ACTIVITY</div><h2 id="modalTitle">Notifications</h2><p>'+unread+' unread notification'+(unread===1?'':'s')+'.</p>'+(unread?'<div style="display:flex;justify-content:flex-end;margin-bottom:12px"><button class="btn ghost small" data-notification-read-all>Mark all as read</button></div>':'')+'<div class="admin-list">'+rows+'</div>';
+  showModal();
+}
+async function performAdminUserAction(id,action){
+  if(action==='delete'&&!confirm('Remove this account from Parts Expedite? This cannot be undone.'))return;
+  if(action==='suspend'&&!confirm('Suspend this account and revoke its active sessions?'))return;
+  try{
+    const result=await backendRequest('/api/admin/users/'+encodeURIComponent(id),{method:'PATCH',body:JSON.stringify({action})});
+    await refreshBackendData();renderRoute();
+    if(result.temporaryPassword)showTemporaryPassword(result.temporaryPassword);
+    else toast(result.message||'Account updated.');
+  }catch(error){toast(error.message);}
+}
+async function reviewLiveSubmission(id,decision){
+  const note=decision==='reject'?(prompt('Reason for rejecting this contribution (optional):','')||''):'';
+  if(decision==='reject'&&!confirm('Reject this contribution?'))return;
+  try{
+    const result=await backendRequest('/api/admin/submissions/'+encodeURIComponent(id),{method:'PATCH',body:JSON.stringify({decision,note})});
+    await refreshBackendData();renderRoute();
+    toast(decision==='approve'?'Contribution approved and published.':'Contribution rejected.');
+  }catch(error){toast(error.message);}
+}
+async function issuePasswordRequest(id){
+  if(!confirm('Create a one-time temporary password for this colleague?'))return;
+  try{
+    const result=await backendRequest('/api/admin/password-requests',{method:'POST',body:JSON.stringify({action:'issue-temporary-password',requestId:id})});
+    await refreshBackendData();renderRoute();
+    showTemporaryPassword(result.temporaryPassword);
+  }catch(error){toast(error.message);}
+}
+function showTemporaryPassword(password){
+  document.getElementById('modalContent').innerHTML='<div class="eyebrow">ONE-TIME CREDENTIAL</div><h2 id="modalTitle">Temporary password created</h2><p>Copy this password and share it with the colleague privately. It will not be shown again. They must change it at their next sign-in.</p><div class="temporary-password">'+escapeHTML(password)+'</div><div class="form-footer"><button type="button" class="btn secondary" data-copy-temp-password>Copy password</button><button type="button" class="btn" id="modalDone">Done</button></div>';
+  document.getElementById('modalDone')?.addEventListener('click',closeModal);
+  const copy=document.querySelector('[data-copy-temp-password]');
+  if(copy)copy.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(password);toast('Temporary password copied.');}catch{toast('Copy is unavailable here; select and copy the password manually.');}});
+  showModal();
+}
+async function markAllNotificationsRead(){
+  try{
+    if(state.currentUser?.role==='admin'){
+      await backendRequest('/api/admin/notifications',{method:'PATCH',body:JSON.stringify({action:'mark-all-read'})});
+    }else{
+      await backendRequest('/api/notifications/read-all',{method:'PATCH',body:JSON.stringify({})});
+    }
+    await refreshBackendData();notify();
+  }catch(error){toast(error.message);}
+}
+async function markAdminNotificationRead(id){
+  try{
+    await backendRequest('/api/admin/notifications',{method:'PATCH',body:JSON.stringify({action:'mark-read',id})});
+    await refreshBackendData();notify();
+  }catch(error){toast(error.message);}
+}
+async function restoreBackendArticle(id){
+  try{
+    await backendRequest('/api/admin/articles/'+encodeURIComponent(id)+'/restore',{method:'PATCH',body:JSON.stringify({})});
+    await refreshBackendData();renderRoute();toast('Article restored to the library.');
+  }catch(error){toast(error.message);}
+}
+async function signOut(){
+  try{await backendRequest('/api/auth/logout',{method:'POST',body:JSON.stringify({})});}
+  catch(error){toast(error.message);return;}
+  state.currentUser=null;state.favorites=[];state.mySubmissions=[];state.notifications=[];state.role='member';state.name='Guest';state.avatar='avatars/amber-sentinel.svg';
+  go('home');renderRoute();toast('You have signed out.');
+}
+async function updateAccountProfile(){
+  const displayName=prompt('Update your display name:',state.currentUser?.displayName||'');
+  if(displayName===null)return;
+  if(displayName.trim().length<2){toast('Display name must contain at least 2 characters.');return;}
+  try{
+    await backendRequest('/api/auth/profile',{method:'POST',body:JSON.stringify({displayName:displayName.trim()})});
+    await refreshBackendData();renderRoute();toast('Profile updated.');
+  }catch(error){toast(error.message);}
+}
+
 function submitArticle(form){if(state.backendActive){submitArticleToBackend(form);return;}const fd=new FormData(form);const item={title:String(fd.get('title')).trim(),category:String(fd.get('category')),tags:String(fd.get('tags')).split(',').map(x=>x.trim()).filter(Boolean),body:String(fd.get('body')).trim(),reference:String(fd.get('reference')).trim(),summary:String(fd.get('body')).trim().replace(/[#*\n-]/g,' ').slice(0,150),author:state.name,updated:new Date().toISOString(),sample:false};if(item.title.length<3||item.body.length<10){toast('Please complete the required fields.');return;}const canPublish=state.role==='admin'||state.role==='editor';if(state.editingId){const original=getArticle(state.editingId);if(!original){toast('The original guide could not be found.');return;}if(canPublish){state.revisions.unshift({id:'REV-'+Date.now(),article:{...item,id:original.id},original:{title:original.title,body:original.body},status:'published',author:state.name,created:new Date().toISOString()});state.articles=state.articles.map(a=>String(a.id)===String(original.id)?{...item,id:original.id,status:'published'}:a);toast('Preview: update published directly.');}else{state.revisions.unshift({id:'REV-'+Date.now(),article:{...item,id:original.id},original:{title:original.title,body:original.body},status:'pending',author:state.name,created:new Date().toISOString()});toast('Preview: edit suggestion sent for review.');}}else{item.id='PE-'+String(Date.now()).slice(-7);item.status=canPublish?'published':'pending';if(canPublish){state.articles.unshift(item);toast('Preview: new article published.');}else{state.submissions.unshift({id:'SUB-'+Date.now(),article:item,status:'pending',author:state.name,created:new Date().toISOString()});toast('Preview: article submitted for review.');}}saveState();state.editingId=null;go('profile');}
 function review(type,index,action){const list=type==='submissions'?state.submissions:state.revisions;const req=list[index];if(!req)return;if(action==='approve'){if(type==='submissions'){state.articles.unshift({...req.article,status:'published'});}else{const updated={...req.article,status:'published'};state.articles=state.articles.map(a=>String(a.id)===String(updated.id)?updated:a);state.revisionHistory.unshift({...req,status:'approved',reviewedAt:new Date().toISOString()});}list.splice(index,1);toast('Preview: item approved and published.');}else{if(type==='revisions')state.revisionHistory.unshift({...req,status:'rejected',reviewedAt:new Date().toISOString()});list.splice(index,1);toast('Preview: item rejected.');}saveState();renderRoute();}
 function recycleArticle(id){const article=getArticle(id);if(!article)return;state.recycle.unshift({id:article.id,article,deletedAt:new Date().toISOString()});state.articles=state.articles.filter(a=>String(a.id)!==String(id));state.favorites=state.favorites.filter(x=>x!==String(id));saveState();renderRoute();toast('Moved to preview recycle bin.');}
