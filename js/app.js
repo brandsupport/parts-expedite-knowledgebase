@@ -240,7 +240,7 @@ function resetPreview(){if(!confirm('Reset all Parts Expedite preview data in th
 document.addEventListener('click',e=>{
  const route=e.target.closest('[data-route]');if(route){e.preventDefault();go(route.dataset.route);return;}
  const fav=e.target.closest('[data-favorite]');if(fav){e.preventDefault();toggleFavorite(fav.dataset.favorite);return;}
- const open=e.target.closest('[data-open-article]');if(open){go('article/'+open.dataset.openArticle);return;}
+ const open=e.target.closest('[data-open-article]');if(open){const id=open.dataset.openArticle;if(state.backendActive){(async()=>{try{const result=await backendRequest('/api/articles/'+encodeURIComponent(id));const mapped=mapBackendArticle(result.article);state.articles=state.articles.map(a=>String(a.id)===String(id)?mapped:a);go('article/'+id);}catch(error){toast(error.message);}})();}else go('article/'+id);return;}
  const edit=e.target.closest('[data-edit-article]');if(edit){go('submit/'+edit.dataset.editArticle);return;}
  const cat=e.target.closest('[data-category]');if(cat){state.activeCategory=cat.dataset.category;renderRoute();return;}
  const tag=e.target.closest('[data-tag]');if(tag){state.search=tag.dataset.tag;state.activeCategory='all';if(location.hash.startsWith('#/articles'))renderRoute();else go('articles');return;}
