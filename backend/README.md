@@ -1,30 +1,37 @@
-# Parts Expedite live workspace — Brand Support-aligned Cloudflare Pages setup
+# Parts Expedite live workspace — Cloudflare Workers Builds
 
-The production platform follows the **same deployment architecture as the Brand Support Knowledge Base**:
+The live workspace is deployed as **one Cloudflare Worker with Static Assets and D1**. This matches the mandatory Deploy command workflow in Workers Builds and keeps the website and API on the same origin.
 
-- Cloudflare Pages serves the built website.
-- Cloudflare Pages Functions handle the same-origin `/api/*` routes.
-- Cloudflare D1 stores accounts, sessions, approvals, submissions, revisions, favorites and notifications.
-- Article screenshots stay in the Git repository and are embedded into the static build as Base64 data URIs.
+- The Worker entry point is `backend/worker.js`.
+- Cloudflare Static Assets serves the generated website from `dist/` through the `ASSETS` binding.
+- Worker API routes use the `DB` binding to the existing D1 database.
+- Original article screenshots are embedded into the static build from repository files.
+- New screenshot uploads are stored as Base64 data in D1.
 
-**There is no R2 bucket, no separate production Worker, no MEDIA binding, and no image-upload service dependency.**
+**No R2 bucket, separate media service, or separate Pages deployment is required.**
 
-The API route adapter in `functions/api/[[path]].js` forwards the same-origin API requests to the existing Parts API handler. The browser uses the Pages hostname for both the site and API, preserving secure HttpOnly session cookies.
+The root `wrangler.jsonc` is the source of truth. It configures the Worker entry point, Static Assets, D1 binding and runtime variables. The Worker uses `env.ASSETS.fetch(request)` for non-API requests and handles `/api/*` requests itself.
 
-## 1. Connect the repository to Cloudflare Pages
+## 1. Configure Cloudflare Workers Builds
 
-In Cloudflare:
+In Cloudflare, connect the GitHub repository `brandsupport/parts-expedite-knowledgebase` to the Worker `parts-expedite-kb`. In **Settings → Builds**, use:
 
-1. Open **Workers & Pages → Create application → Pages → Connect to Git**.
-2. Select the GitHub repository `brandsupport/parts-expedite-knowledgebase`.
-3. Use project name `parts-expedite-kb` and production branch `main`.
-4. Set the build command to `npm run build`.
-5. Set the build output directory to `dist`.
-6. Set the root directory to `/` and start the first deployment.
+| Setting | Value |
+|---|---|
+| Root directory | `/` |
+| Build command | `npm run build` |
+| Deploy command | `npm run deploy` |
+| Production branch | `main` |
 
-Cloudflare Pages automatically discovers the repository's `functions/` directory. The root `wrangler.jsonc` is the source of truth for the Pages project and contains the D1 binding.
+The Deploy command is required in Workers Builds. The `npm run deploy` script runs:
 
-## 2. Apply the D1 migrations
+```bash
+wrangler deploy --config wrangler.jsonc
+```
+
+The build command creates `dist/`; Wrangler then deploys `backend/worker.js` and uploads that directory as Worker Static Assets. Do not use `wrangler pages deploy` for this Worker deployment.
+
+## 2. D1 database and migrations
 
 The existing D1 database is:
 
@@ -32,22 +39,22 @@ The existing D1 database is:
 - Binding: `DB`
 - Database ID: `614c9444-160b-4db1-a061-5661185e7cef`
 
-The manual GitHub Actions workflow **Apply Parts Expedite D1 migrations** applies the ordered SQL files from `backend/migrations/` to that database. It requires repository Actions secrets:
+The manual GitHub Actions workflow **Apply Parts Expedite D1 migrations** applies the ordered SQL files from `backend/migrations/` to this database. It requires repository Actions secrets:
 
 - `CLOUDFLARE_API_TOKEN` — account-scoped token with **D1 Edit** permission.
 - `CLOUDFLARE_ACCOUNT_ID` — Cloudflare account ID.
 
-Do not add Workers Scripts Write or R2 permissions. Never commit either secret or paste the API token into chat.
+Workers Builds must also have permission to deploy the Worker and bind the existing D1 database. Never commit either secret or paste the API token into chat. No R2 permissions or bucket are required.
 
-Run the workflow after the Pages project has been created and its first build is complete. It applies the 30 imported articles, category records and account/publishing schema. The 58 original AVIF files are handled by the static build; the database only keeps their metadata references.
+Run the migration workflow after the first successful Worker deployment. It applies the imported articles, categories and account/publishing schema. The original AVIF files are handled by the static build; the database keeps image metadata references.
 
 ## 3. Enable account registration
 
-The initial Pages configuration deliberately sets `AUTH_ENABLED=false`. After the migrations succeed:
+The initial Wrangler configuration deliberately sets `AUTH_ENABLED=false`. After the migrations succeed:
 
 1. Change `AUTH_ENABLED` to `true` in `wrangler.jsonc` and commit the change.
-2. Wait for Cloudflare Pages to deploy the new commit.
-3. Open the live Pages URL and use **Request access** to register your own work account.
+2. Workers Builds will rebuild and redeploy the Worker.
+3. Open the live Worker URL and use **Request access** to register your own work account.
 4. In the Cloudflare D1 Console, promote only that first account to Administrator using its exact email:
 
 ```sql
@@ -65,10 +72,11 @@ New registrations remain pending Member accounts. Administrators approve them an
 
 ## 4. Screenshot and article publishing model
 
-The existing 58 AVIF screenshots and 60 article references across 19 guides stay in `data/article_images/` and `data/article-images.js`. `scripts/build-static.mjs` embeds the source files into `data/article-images.js` in the generated site. The original archive and source images are not duplicated into the published `dist` output.
+The existing 58 AVIF screenshots and 60 article references across 19 guides stay in the Git repository. `scripts/build-static.mjs` embeds the source files into the generated site. The original archive and source images are not duplicated as remote media objects.
 
 New screenshot uploads use the same no-bucket approach: the API validates JPEG, PNG, WebP and AVIF files, limits each file to 270 KB and stores the Base64 image data in D1. Member screenshots remain attached to pending submissions and move to the published article records only when an administrator approves the contribution.
-Screenshots are limited to 8 per contribution, 270 KB each and 900 KB total. The data URI is held in D1 and served only through authenticated same-origin API routes for pending submissions; published images use the same route with public article visibility checks.
+
+Limits are 8 screenshots per contribution, 270 KB each and 900 KB total.
 
 ## Local checks
 
@@ -76,13 +84,14 @@ Screenshots are limited to 8 per contribution, 270 KB each and 900 KB total. The
 npm install
 npm run check
 npm run build
+npm run dev
 npm run db:status:remote
 ```
 
-For local Pages Functions development, use `npm run dev`. D1 migrations can be applied from the repository root with `npm run db:migrate:remote` once Wrangler is authenticated.
+To deploy manually after authenticating Wrangler, use `npm run deploy`. D1 migrations can be applied from the repository root with `npm run db:migrate:remote`.
 
 ## Operational notes
 
 - Password recovery is administrator-mediated; no email delivery provider is configured yet.
-- GitHub Pages remains a read-only preview. Use the Cloudflare Pages hostname for live sign-in.
+- GitHub Pages remains a read-only static preview. Use the Cloudflare Worker URL for live sign-in.
 - Keep D1 production data backed up and periodically review Administrator and Authorized Editor access.
