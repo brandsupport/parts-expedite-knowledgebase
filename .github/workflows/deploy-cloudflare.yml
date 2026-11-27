@@ -8,6 +8,11 @@ on:
         required: true
         default: true
         type: boolean
+      enable_authentication:
+        description: "Enable account sign-in after the first administrator has been bootstrapped"
+        required: true
+        default: false
+        type: boolean
 
 concurrency:
   group: parts-expedite-cloudflare-production
@@ -81,4 +86,4 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy
+          command: deploy --var AUTH_ENABLED:${{ inputs.enable_authentication && 'true' || 'false' }}
