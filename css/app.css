@@ -86,3 +86,12 @@
 .detail-body ol{padding-left:23px;margin:8px 0 17px}
 .detail-body ol li{margin:6px 0;padding-left:3px}
 .detail-body h4{font:700 14px var(--display);color:#f1c77c;margin:20px 0 8px}
+
+.article-images{margin-top:28px;padding-top:21px;border-top:1px solid var(--line)}
+.article-images>h3{font:700 17px var(--display);color:#ffd17b;margin:0 0 13px}
+.article-image-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.article-image{margin:0;padding:10px;border:1px solid var(--line);border-radius:12px;background:#0e0b08;min-width:0}
+.article-image a{display:block;overflow:hidden;border-radius:8px;background:#f3f3f3}
+.article-image img{display:block;width:100%;height:auto;max-height:440px;object-fit:contain}
+.article-image figcaption{color:#a99475;font-size:9px;line-height:1.45;margin-top:8px}
+@media(max-width:650px){.article-image-grid{grid-template-columns:1fr}}
