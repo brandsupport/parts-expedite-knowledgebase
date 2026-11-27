@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS article_submission_images (
   id TEXT PRIMARY KEY,
   submission_id TEXT NOT NULL REFERENCES article_submissions(id) ON DELETE CASCADE,
   storage_key TEXT NOT NULL UNIQUE,
-  content_type TEXT NOT NULL CHECK (content_type IN ('image/jpeg','image/png','image/webp')),
+  content_type TEXT NOT NULL CHECK (content_type IN ('image/jpeg','image/png','image/webp','image/avif')),
   byte_size INTEGER NOT NULL DEFAULT 0,
   alt_text TEXT NOT NULL,
   caption TEXT NOT NULL DEFAULT '',
